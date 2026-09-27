@@ -10,9 +10,10 @@ long-term supported release series.
 
 ## Unreleased
 
-## 0.7.0-rc.1 - 2026-09-22
+## 0.7.0 - 2026-09-27
 
-Release candidate preparation; publication and final device acceptance are pending.
+Stable release preparation; canonical distribution and final automated gates
+remain pending until publication.
 
 - Add Hysteria 2 and standard WireGuard client outbounds for SOCKS, HTTP,
   TUN and routed DNS, with bounded TCP/UDP resources and independent native
@@ -33,10 +34,17 @@ Release candidate preparation; publication and final device acceptance are pendi
 - Expose capability discovery, shared profile import and network-change
   notifications through the additive C ABI 1.7 and matching Swift/Kotlin APIs.
 - Retain the pinned Xray-core v26.7.28 compatibility target. Supported options
-  and bounds are documented; this RC does not claim full upstream parity.
+  and bounds are documented; this release does not claim full upstream parity.
 - Defer the higher XHTTP/H2 TUN RSS to a future version by owner decision.
   Separate Hysteria2 latency/short WAN duplex gaps remain documented; complete
   performance parity has not been established. See [performance evidence](docs/v07-performance.md).
+- Preserve device/performance measurements of clean candidate `3533166` and
+  validate stable promotion as version/documentation/evidence tooling only.
+  Runtime, dependencies, ABI and build inputs must remain unchanged.
+- Record two explicit owner decisions: Android cellular handover was not tested;
+  the investigated rare Android WireGuard timeout case is accepted for 0.7.
+  Original failures remain visible; no root-cause fix or general reliability
+  allowance is claimed. See [stable evidence](docs/v07-stable-promotion.md).
 - Require versioned exact-candidate Apple/Android evidence for 0.7 publication.
   New checks include both protocols, both Android adapter paths, recovery and
   legacy regression coverage; old v0.6 evidence remains independently validated.

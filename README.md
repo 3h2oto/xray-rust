@@ -15,6 +15,12 @@ Both retain the tested [`v0.6.1-rc.1`](https://github.com/aimalygin/xray-rust/re
 runtime. The immutable mobile SDK remains pinned to that exact RC1 core
 revision. See [stable promotion and evidence provenance](docs/v061-stable-promotion.md).
 
+Stable **0.7.0** is being prepared with Hysteria2/WireGuard and additive C ABI 1.7.
+The [release record](docs/v07-stable-promotion.md) preserves measured source
+identities, explicit owner-accepted device exceptions and performance limitations.
+Canonical 0.7.0 packages remain pending; the published stable version above is
+still the current distribution until release completion.
+
 ## Benchmarks
 
 The latest published synthetic localhost evidence compares the `v0.4.1-rc.4`

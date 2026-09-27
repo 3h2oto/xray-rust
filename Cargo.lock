@@ -2818,7 +2818,7 @@ dependencies = [
 
 [[package]]
 name = "xray-bench"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2843,7 +2843,7 @@ dependencies = [
 
 [[package]]
 name = "xray-cli"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "libc",
  "serde_json",
@@ -2855,7 +2855,7 @@ dependencies = [
 
 [[package]]
 name = "xray-config"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "base64",
  "libc",
@@ -2873,7 +2873,7 @@ dependencies = [
 
 [[package]]
 name = "xray-core-rs"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2910,7 +2910,7 @@ dependencies = [
 
 [[package]]
 name = "xray-ffi"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "bytes",
  "libc",
@@ -2926,7 +2926,7 @@ dependencies = [
 
 [[package]]
 name = "xray-proxy"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "base64",
  "bytes",
@@ -2942,7 +2942,7 @@ dependencies = [
 
 [[package]]
 name = "xray-routing"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "aho-corasick",
  "bytes",
@@ -2952,7 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "xray-runtime"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "thiserror 2.0.20",
  "tokio",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "xray-transport"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -3022,7 +3022,7 @@ dependencies = [
 
 [[package]]
 name = "xray-tun"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "bytes",
  "thiserror 2.0.20",
@@ -3031,11 +3031,11 @@ dependencies = [
 
 [[package]]
 name = "xray-utls"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 
 [[package]]
 name = "xray-vless-encryption"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "aes",
  "aws-lc-rs",
@@ -3052,7 +3052,7 @@ dependencies = [
 
 [[package]]
 name = "xray-wireguard"
-version = "0.7.0-rc.1"
+version = "0.7.0"
 dependencies = [
  "base64",
  "bytes",
