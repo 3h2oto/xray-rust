@@ -33,6 +33,18 @@ NON_RUNTIME_FILES = {
 # Workflow edits are checked against exact substitutions below, not generally waived.
 WORKFLOW_FILES = {".github/workflows/ci.yml", "scripts/tests/check-scheduled-interop-workflow.test.sh"}
 VERSIONED_FILES = {"Cargo.toml", "Cargo.lock", "docs/config-contract.json"}
+# Bind the scanner-only false-positive correction to its reviewed bytes. This
+# does not permit arbitrary scanner exclusions or changes to its test coverage.
+SCANNER_POLICY_FILES = {
+    ".gitleaks.toml": (
+        "9bb942cbc4169e761957f7748975df3b8ca73d49e4549dab5a4f88bd90c8a074",
+        "2bf624dfcaa4afd695c65277297ef6993965da4bb73a4f6fd7302cbeeac36bc2",
+    ),
+    "scripts/tests/check-gitleaks-allowlists.test.py": (
+        "d2fe9de6e174bd12bef00386a3f0d83b27bda20e9ca5100642a1a0fad240ab29",
+        "6600520c4ba3fd86a788f1403540a3d53c8c4d0639e33988451aa9008df6bcc1",
+    ),
+}
 
 SPEC = importlib.util.spec_from_file_location(
     "rc_evidence", ROOT / "scripts/check-v07-release-evidence.py"
@@ -95,13 +107,18 @@ def validate_source(root: pathlib.Path, revision: str, tree: str) -> list[str]:
     changed = sorted(name for name in before.keys() | after.keys() if before.get(name) != after.get(name))
     require(VERSIONED_FILES <= set(changed), "stable version metadata is incomplete")
     for name in changed:
-        require(name in NON_RUNTIME_FILES | VERSIONED_FILES | WORKFLOW_FILES, f"runtime or unapproved file changed: {name}")
+        require(name in NON_RUNTIME_FILES | VERSIONED_FILES | WORKFLOW_FILES | SCANNER_POLICY_FILES.keys(), f"runtime or unapproved file changed: {name}")
         require(name in after, f"promotion deletes a file: {name}")
         require(after[name][0] in {"100644 blob", "100755 blob"}, f"not a regular file: {name}")
         if name in before:
             require(before[name][0] == after[name][0], f"file mode changed: {name}")
         if name in VERSIONED_FILES:
             validate_version_change(name, git(root, "show", f"{MEASURED_COMMIT}:{name}"), git(root, "show", f"{revision}:{name}"))
+        if name in SCANNER_POLICY_FILES:
+            require(name in before, f"scanner policy did not exist in the measured source: {name}")
+            actual = tuple(hashlib.sha256(git(root, "show", f"{ref}:{name}")).hexdigest()
+                           for ref in (MEASURED_COMMIT, revision))
+            require(actual == SCANNER_POLICY_FILES[name], f"scanner policy differs from the reviewed correction: {name}")
         if name in WORKFLOW_FILES:
             old = git(root, "show", f"{MEASURED_COMMIT}:{name}")
             new = git(root, "show", f"{revision}:{name}")

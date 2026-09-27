@@ -61,6 +61,17 @@ and compares every tree entry, file mode and blob. It permits only:
 - Only `coreVersion` in the generated configuration contract.
 - Explicitly listed release documentation, owner decisions, evidence validators
   and their tests. The CI workflow permits only the exact extra test invocation.
+- The scanner correction for nine exact file SHA-256 values in the immutable
+  automated evidence index, plus negative controls. Before/after hashes pin
+  both the scanner configuration and its tests; broader exclusions are rejected.
+
+After PR #37 merged, whole-history scanning also encountered the separate
+evidence branch added after the preceding CI runs. Nine values in
+`automated-validation.json` at `e2bb086b270edc1a5437ac61199127c2dd4cb84b`
+matched the generic API-key heuristic because their file names contain `key`.
+All nine were recomputed from the corresponding CI archive members and are
+file digests. The correction permits only those values in that exact index
+path for that one rule; other values, paths, and scanner rules remain active.
 
 Runtime, new build files, adapters, ABI, compiler settings, dependencies,
 unapproved paths, deletions, symlinks and file-mode changes are rejected.

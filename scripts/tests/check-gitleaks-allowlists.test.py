@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import tomllib
 import unittest
 
 
@@ -15,6 +16,8 @@ FIXTURE = "scripts/run-v07-performance.py"
 BUILD = "docs/benchmarks/results/2026-09-20-v07-parity/data/reference-native-hysteria-build.txt"
 DIGEST = "abcdef0123456789" * 4
 PUBLIC_FIXTURE = "aGSYystUbf59_9_6LKRxD27rmSW_-2_nyd9YG_Gwbks"
+ARCHIVE_INDEX = "automated-validation.json"
+ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence index"
 
 
 class EvidenceAllowlists(unittest.TestCase):
@@ -67,6 +70,32 @@ class EvidenceAllowlists(unittest.TestCase):
         # Synthetic scanner control, assembled to avoid embedding a token literal.
         token = "ghp_" + "aB7cD9eF2gH4iJ6kL8mN0oP1qR3sT5uV7wX9"
         self.assertIn((INDEX, "github-pat"), self.scan({INDEX: token}))
+
+    def test_exact_archive_digests_are_allowed(self):
+        config = tomllib.loads((ROOT / ".gitleaks.toml").read_text())
+        reviewed = [item for item in config["allowlists"]
+                    if item.get("description") == ARCHIVE_ALLOWLIST]
+        self.assertEqual(len(reviewed), 1)
+        expressions = reviewed[0]["regexes"]
+        self.assertEqual(len(expressions), 9)
+        for expression in expressions:
+            self.assertRegex(expression, r"^\^[0-9a-f]{64}\$$")
+            digest = expression[1:-1]
+            with self.subTest(digest=digest):
+                self.assertEqual(self.scan({
+                    ARCHIVE_INDEX: json.dumps({"fixture/private-key.pem": digest}),
+                    "unreviewed.json": json.dumps({"api_key": digest}),
+                }), {("unreviewed.json", "generic-api-key")})
+
+    def test_archive_index_still_detects_unreviewed_values_and_other_rules(self):
+        synthetic = "ABcdeF01234" + "GHijk56789lMno"
+        for value in (DIGEST, synthetic):
+            with self.subTest(value=value):
+                self.assertEqual(self.scan({
+                    ARCHIVE_INDEX: json.dumps({"api_key": value}),
+                }), {(ARCHIVE_INDEX, "generic-api-key")})
+        token = "ghp_" + "aB7cD9eF2gH4iJ6kL8mN0oP1qR3sT5uV7wX9"
+        self.assertIn((ARCHIVE_INDEX, "github-pat"), self.scan({ARCHIVE_INDEX: token}))
 
 
 if __name__ == "__main__":
