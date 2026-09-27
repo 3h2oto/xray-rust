@@ -11,9 +11,9 @@ The clean measured core is commit `353316687b22c2fabbaf37ab5668dda05a972f46`,
 tree `f5aacb1fb5a5bbda9eac83a7330059219ce6b0ce`, package version `0.7.0-rc.1`.
 No public RC tag is required or invented for this measured source.
 
-The [immutable evidence snapshot](https://github.com/aimalygin/xray-rust/tree/3f709c1fc934446b2f31a15a23af476a4be2feb7)
+The [immutable evidence snapshot](https://github.com/aimalygin/xray-rust/tree/2f64938035366b5bff53caa41288d4aa753fb79f)
 contains `v07-release-evidence.zip`, SHA-256
-`53871410835d25e0af0b51f94d71a3d9551bd5e5a7182c0c318738182d7b1e6d`.
+`b10aa3e1c6c0451f0d52b0ed13b0272d805fb88cbdbebd94f7c7069cb531330b`.
 Schema 3 records **accepted-with-exceptions**, not unconditional passage.
 
 - iPhone 17 Pro Max: nine scenario groups; Hysteria2/WireGuard, actual

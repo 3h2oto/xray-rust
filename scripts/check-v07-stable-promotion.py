@@ -16,7 +16,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MEASURED_COMMIT = "353316687b22c2fabbaf37ab5668dda05a972f46"
 MEASURED_TREE = "f5aacb1fb5a5bbda9eac83a7330059219ce6b0ce"
-EVIDENCE_SHA256 = "53871410835d25e0af0b51f94d71a3d9551bd5e5a7182c0c318738182d7b1e6d"
+EVIDENCE_SHA256 = "b10aa3e1c6c0451f0d52b0ed13b0272d805fb88cbdbebd94f7c7069cb531330b"
 MEASURED_VERSION = "0.7.0-rc.1"
 STABLE_VERSION = "0.7.0"
 
@@ -31,7 +31,7 @@ NON_RUNTIME_FILES = {
     "scripts/tests/test_v07_stable_promotion.py",
 }
 # Workflow edits are checked against exact substitutions below, not generally waived.
-WORKFLOW_FILES = {".github/workflows/ci.yml"}
+WORKFLOW_FILES = {".github/workflows/ci.yml", "scripts/tests/check-scheduled-interop-workflow.test.sh"}
 VERSIONED_FILES = {"Cargo.toml", "Cargo.lock", "docs/config-contract.json"}
 
 SPEC = importlib.util.spec_from_file_location(
