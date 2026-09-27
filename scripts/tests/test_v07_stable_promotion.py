@@ -37,6 +37,8 @@ class StablePromotionTests(unittest.TestCase):
         self.write("docs/config-contract.json", '{"coreVersion":"0.7.0-rc.1","supported":["vless"]}')
         self.write("crates/xray-config/src/lib.rs", "pub const VALUE: u8 = 1;\n")
         self.write("README.md", "Candidate\n")
+        for name in PROMOTION.SCANNER_POLICY_FILES:
+            self.write(name, "measured scanner policy\n")
         self.commit()
         self.rc = self.git("rev-parse", "HEAD")
         self.tree = self.git("rev-parse", "HEAD^{tree}")
@@ -123,6 +125,29 @@ class StablePromotionTests(unittest.TestCase):
         self.commit()
         with self.assertRaises((ValueError, subprocess.CalledProcessError)):
             self.validate()
+
+    def test_only_exact_reviewed_scanner_policy_delta_is_allowed(self):
+        before = hashlib.sha256(b"measured scanner policy\n").hexdigest()
+        after = hashlib.sha256(b"reviewed correction\n").hexdigest()
+        expected = {name: (before, after) for name in PROMOTION.SCANNER_POLICY_FILES}
+        for name in expected:
+            self.write(name, "reviewed correction\n")
+        self.commit()
+        with patch.object(PROMOTION, "SCANNER_POLICY_FILES", expected):
+            self.assertTrue(expected.keys() <= set(self.validate()))
+            for name in expected:
+                with self.subTest(name=name):
+                    self.write(name, "disable scanning\n")
+                    self.commit()
+                    with self.assertRaisesRegex(ValueError, "scanner policy differs"):
+                        self.validate()
+                    self.write(name, "reviewed correction\n")
+                    self.commit()
+
+    def test_scanner_correction_hashes_match_checked_in_files(self):
+        for name, (_, expected) in PROMOTION.SCANNER_POLICY_FILES.items():
+            with self.subTest(name=name):
+                self.assertEqual(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), expected)
 
     def test_mode_change_is_rejected(self):
         (self.root / "README.md").chmod(0o755)

@@ -156,3 +156,25 @@ condition = "AND"
 regexTarget = "line"
 regexes = ['''^\s*dep\tgolang\.org/x/oauth2\tv0\.30\.0\th1:dnDm7JmhM45NNpd8FDDeLhK6FwqbOf4MLCM9zb1BOHI=$''']
 paths = ['''^docs/benchmarks/results/2026-09-20-v07-parity/data/reference-native-hysteria-build\.txt$''']
+
+# The immutable CI archive index at e2bb086 records file SHA-256 values,
+# including ephemeral loopback TLS fixture files and a fuzz corpus entry.
+# Each of these nine values was recomputed from its archived member. Restrict
+# the exception to the exact reviewed digests, index path, and scanner rule.
+[[allowlists]]
+description = "Nine verified file digests in the v0.7 automated evidence index"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^automated-validation\.json$''']
+regexes = [
+  '''^5aff6ecf76db2f0a91619d938b755a4c516c90dae3833629cda3ecb4664fedec$''',
+  '''^854d9386d49a3b17851d195b223c1b68fe85a7af0d853b77d71e1cf97fcfaa94$''',
+  '''^8d3db5ee707bb78914043f7377faf8953eb5331836492661cd67110d64da987e$''',
+  '''^2996929cd4f873e741313ba5607e8db53be7f4e8ef83187c11fc212aa14f60f5$''',
+  '''^6a7c7faf393114b17007ba2cbffa6cc644402dd102d773b9047d641c0ee35eb9$''',
+  '''^31f35b7cee328b15c034e569c46d4dba9398c36bdf0e90164c69283d7c9d38a6$''',
+  '''^76d3b20f34bfa9b892fe8c177104fc799e37e107e5dbae83565b78c4f96f1c29$''',
+  '''^7665ef5be9c7912c87b1accfcac9089edc115f065d9134b8f00a2fd5a416f099$''',
+  '''^dfb807094495c6d641d36f99177a0e3c6c93c5d3b68beb02eb1cf4f8fa43e70c$''',
+]
