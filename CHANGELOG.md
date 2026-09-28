@@ -12,8 +12,8 @@ long-term supported release series.
 
 ## 0.7.0 - 2026-09-27
 
-Stable release preparation; canonical distribution and final automated gates
-remain pending until publication.
+Stable source release. Canonical SDK packages and their publication status are
+listed in [xray-rust-mobile releases](https://github.com/aimalygin/xray-rust-mobile/releases).
 
 - Add Hysteria 2 and standard WireGuard client outbounds for SOCKS, HTTP,
   TUN and routed DNS, with bounded TCP/UDP resources and independent native

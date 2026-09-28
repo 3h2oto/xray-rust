@@ -9,21 +9,19 @@ client runtime; its supported compatibility surface is documented below.
 
 This project is unofficial and is not affiliated with XTLS or Xray-core.
 
-Stable source version: [`v0.6.1`](https://github.com/aimalygin/xray-rust/releases/tag/v0.6.1).
-Mobile SDK: [`v0.6.1`](https://github.com/aimalygin/xray-rust-mobile/releases/tag/v0.6.1).
-Both retain the tested [`v0.6.1-rc.1`](https://github.com/aimalygin/xray-rust/releases/tag/v0.6.1-rc.1)
-runtime. The immutable mobile SDK remains pinned to that exact RC1 core
-revision. See [stable promotion and evidence provenance](docs/v061-stable-promotion.md).
+Stable source version: [`v0.7.0`](https://github.com/aimalygin/xray-rust/releases/tag/v0.7.0).
+Mobile SDK: [latest published stable release](https://github.com/aimalygin/xray-rust-mobile/releases/latest).
 
-Stable **0.7.0** is being prepared with Hysteria2/WireGuard and additive C ABI 1.7.
+Stable **0.7.0** adds Hysteria2/WireGuard and additive C ABI 1.7.
 The [release record](docs/v07-stable-promotion.md) preserves measured source
 identities, explicit owner-accepted device exceptions and performance limitations.
-Canonical 0.7.0 packages remain pending; the published stable version above is
-still the current distribution until release completion.
+The source release contains its exact tag/commit metadata, checksums and
+source-validation report. Canonical SDK packages and their publication status
+are listed separately in the mobile repository's releases.
 
 ## Benchmarks
 
-The latest published synthetic localhost evidence compares the `v0.4.1-rc.4`
+The historical synthetic localhost evidence below compares the `v0.4.1-rc.4`
 benchmark candidate `5895b09`
 with Xray-core `v26.7.28`
 (`5ca6f4b7d4dc20a881d4330e498892697627ec0c`) and stable sing-box `v1.13.20`
@@ -32,6 +30,10 @@ release runs from the 2026-08-31 result group on an Apple M3 Pro MacBook Pro
 with 18 GB RAM and macOS 26.5.2. The [full dated evidence](docs/benchmarks/results/2026-08-31-v26.7.28/README.md)
 contains 139 validated series, exact binary hashes, tables, omissions, and raw
 archive provenance.
+
+For 0.7 regression checks and Hysteria2/WireGuard comparisons, see the
+[0.7 performance record](docs/v07-performance.md), including the accepted
+measurement tolerance, deferred RSS work and remaining comparison gaps.
 
 Lowest resident memory at every measured idle-flow scale — 4.2 MiB idle and
 20.9 MiB with 1,000 held SOCKS flows, against 80.8 MiB for Xray-core and
