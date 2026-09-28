@@ -2,22 +2,7 @@
 
 Project website: [xray-rust.aimalygin.chatgpt.site](https://xray-rust.aimalygin.chatgpt.site)
 
-`xray-rust` is a mobile/client-first Rust implementation of Xray configuration
-and proxy protocols. It provides a native runtime, a C ABI, and integrations
-for Apple platforms and Android. The current release focuses on an embeddable
-client runtime; its supported compatibility surface is documented below.
-
-This project is unofficial and is not affiliated with XTLS or Xray-core.
-
-Stable source version: [`v0.7.0`](https://github.com/aimalygin/xray-rust/releases/tag/v0.7.0).
-Mobile SDK: [latest published stable release](https://github.com/aimalygin/xray-rust-mobile/releases/latest).
-
-Stable **0.7.0** adds Hysteria2/WireGuard and additive C ABI 1.7.
-The [release record](docs/v07-stable-promotion.md) preserves measured source
-identities, explicit owner-accepted device exceptions and performance limitations.
-The source release contains its exact tag/commit metadata, checksums and
-source-validation report. Canonical SDK packages and their publication status
-are listed separately in the mobile repository's releases.
+Mobile repository: [xray-rust-mobile](https://github.com/aimalygin/xray-rust-mobile)
 
 ## Benchmarks
 
