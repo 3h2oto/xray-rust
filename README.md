@@ -4,6 +4,17 @@ Project website: [xray-rust.aimalygin.chatgpt.site](https://xray-rust.aimalygin.
 
 Mobile repository: [xray-rust-mobile](https://github.com/aimalygin/xray-rust-mobile)
 
+## Support the project
+
+If you find this project useful, consider supporting its development with a donation:
+
+- **TON (TON network):** UQCIpU1qagwDltuqPUZh4EuI2zXvismk6esCCTWUVphj_o4y
+- **ETH (Ethereum network):** 0x96A9a65E188c439a95267a3dA6920884C530f57f
+- **BTC (Bitcoin network):** bc1qxxk42z2ty8wx702sk5cammwhchl95y39kf2wdc
+- **SOL (Solana network):** D4xFX2GwPniSetHZWn2XRTBaSM6m1k1wMtacr6TMVHQD
+
+Thank you for your support!
+
 ## Benchmarks
 
 The historical synthetic localhost evidence below compares the `v0.4.1-rc.4`
