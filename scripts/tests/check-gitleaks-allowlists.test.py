@@ -54,6 +54,13 @@ class EvidenceAllowlists(unittest.TestCase):
             path: json.dumps({"api_key": command_key}),
             "unreviewed.json": oracle_line,
         }), {(name, "generic-api-key") for name in (path, "unreviewed.json")})
+        test_path = "scripts/tests/check-gitleaks-allowlists.test.py"
+        assignment = '        command_key = "' + command_key[:16] + '" + "' + command_key[16:] + '"\n'
+        self.assertEqual(self.scan({test_path: assignment}), set())
+        self.assertEqual(self.scan({
+            "unreviewed.py": assignment,
+            test_path: assignment.replace("command_key", "api_key"),
+        }), {(name, "generic-api-key") for name in (test_path, "unreviewed.py")})
 
     def scan(self, files):
         binary = os.environ["GITLEAKS_BINARY"]

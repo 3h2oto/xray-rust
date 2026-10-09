@@ -7,6 +7,14 @@ useDefault = true
 # CI scans --all, so main also needs their exact path/value/rule scope while
 # the v0.8 evidence is still on a separate branch.
 
+[[allowlists]]
+description = "Public VMess oracle command-key assignment in its scanner regression test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^scripts/tests/check-gitleaks-allowlists\.test\.py$''']
+regexes = ['''^\s*command_key = "d34482dca079f1e8" \+ "ad37ff8d08a382cf"$''']
+
 # Rehashed from the signed iPhone app's Mach-O files; these are public digests.
 [[allowlists]]
 description = "Verified iPhone v0.8 app executable digests"
