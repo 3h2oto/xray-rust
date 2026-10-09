@@ -10,6 +10,9 @@ long-term supported release series.
 
 ## Unreleased
 
+- Close TUN TCP flows whose remote closes before the client's handshake ACK
+  without waiting for another client segment.
+
 ## 0.7.0 - 2026-09-27
 
 Stable source release. Canonical SDK packages and their publication status are

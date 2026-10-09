@@ -521,6 +521,9 @@ struct FlowBudgetState {
     udp_budget_drops: u64,
     udp_evicted_flows: u64,
     udp_channel_dropped_packets: u64,
+    /// Set by the latest remote write pass when a closed remote's FIN waits
+    /// for the client's handshake ACK.
+    tcp_fin_waits_for_handshake: bool,
 }
 
 impl FakeIpMapper {
@@ -649,6 +652,7 @@ impl FlowBudgetState {
             udp_budget_drops: 0,
             udp_evicted_flows: 0,
             udp_channel_dropped_packets: 0,
+            tcp_fin_waits_for_handshake: false,
         }
     }
 
@@ -2420,7 +2424,12 @@ fn drain_tcp_remote_data_to_sockets(
         let written = write_remote_data_to_sockets(sockets, flows, flow_budget_state);
         drained_bytes = drained_bytes.saturating_add(written);
 
-        let has_pending_remote_data = flow_budget_state.pending_total_bytes() > 0;
+        // A remote that closed before the client's handshake ACK (such as a
+        // blackhole) waits like pending data: this pass ran before the stack
+        // processed that ACK, so poll and retry instead of stalling an idle
+        // client until its next segment.
+        let has_pending_remote_data = flow_budget_state.pending_total_bytes() > 0
+            || flow_budget_state.tcp_fin_waits_for_handshake;
         if written == 0 && !has_pending_remote_data {
             break;
         }
@@ -2443,6 +2452,7 @@ fn write_remote_data_to_sockets(
     flow_budget_state: &mut FlowBudgetState,
 ) -> usize {
     let mut written_bytes = 0usize;
+    flow_budget_state.tcp_fin_waits_for_handshake = false;
 
     for (handle, flow) in flows {
         let socket = sockets.get_mut::<tcp::Socket>(*handle);
@@ -2478,12 +2488,13 @@ fn write_remote_data_to_sockets(
             }
         }
         acknowledge_remote_data(flow);
-        if flow.remote_closed
-            && flow.pending_remote.is_empty()
-            && !flow.has_deferred_remote_data
-            && socket.may_send()
-        {
-            socket.close();
+        if flow.remote_closed && flow.pending_remote.is_empty() && !flow.has_deferred_remote_data {
+            if socket.may_send() {
+                socket.close();
+            } else if socket.state() == tcp::State::SynReceived {
+                // smoltcp cannot send FIN while its SYN is unacknowledged.
+                flow_budget_state.tcp_fin_waits_for_handshake = true;
+            }
         }
     }
 
@@ -7631,6 +7642,103 @@ mod tests {
         assert!(flow.pending_remote.is_empty());
         assert_eq!(flow.pending_remote_bytes, 0);
         assert_eq!(flow_budget_state.pending_total_bytes(), 0);
+    }
+
+    #[test]
+    fn remote_tcp_drain_closes_after_queued_handshake_ack() {
+        let client_ip = Ipv4Addr::new(10, 10, 0, 2);
+        let server_ip = Ipv4Addr::new(203, 0, 113, 7);
+        let client_port = 49_152;
+        let server_port = 443;
+        let client_seq = 1_000u32;
+        let endpoint = IpEndpoint::new(IpAddress::Ipv4(server_ip), server_port);
+
+        let mut device = PacketDevice::new(1500);
+        let mut iface_config = InterfaceConfig::new(HardwareAddress::Ip);
+        iface_config.random_seed = DEFAULT_RANDOM_SEED;
+        let mut iface = Interface::new(iface_config, &mut device, Instant::now());
+        iface.set_any_ip(true);
+        let mut sockets = SocketSet::new(Vec::new());
+        let mut listeners = HashMap::new();
+        add_tcp_listener(&mut sockets, &mut listeners, endpoint);
+        let handle = listeners.get(&endpoint).unwrap().handle;
+
+        device.push_inbound(Bytes::from(build_ipv4_tcp_packet(
+            client_ip,
+            client_port,
+            server_ip,
+            server_port,
+            client_seq,
+            0,
+            TCP_SYN,
+            &[],
+        )));
+        iface.poll(Instant::now(), &mut device, &mut sockets);
+        let syn_ack = device.pop_outbound().unwrap();
+        let server_seq = ipv4_tcp_sequence(&syn_ack).unwrap();
+
+        // The remote closed with nothing to send (for example a blackhole)
+        // before the client's handshake ACK arrived.
+        let (to_remote, _from_stack) = mpsc::channel(1);
+        let mut flow_budget_state = test_flow_budget(256);
+        let mut tcp_flows = HashMap::new();
+        tcp_flows.insert(
+            handle,
+            TcpFlow {
+                generation: 1,
+                to_remote: Some(to_remote),
+                task: None,
+                remote_open: false,
+                upload_queue_packets: None,
+                pending_remote: VecDeque::new(),
+                pending_remote_bytes: 0,
+                has_deferred_remote_data: false,
+                pending_remote_delivery: None,
+                remote_closed: true,
+                remote_aborted: false,
+            },
+        );
+        assert_eq!(
+            write_remote_data_to_sockets(&mut sockets, &mut tcp_flows, &mut flow_budget_state),
+            0
+        );
+        assert_eq!(
+            sockets.get::<tcp::Socket>(handle).state(),
+            tcp::State::SynReceived
+        );
+
+        // As in process_tun_packet, the ACK is queued and first polled by the
+        // drain, after its initial write pass.
+        device.push_inbound(Bytes::from(build_ipv4_tcp_packet(
+            client_ip,
+            client_port,
+            server_ip,
+            server_port,
+            client_seq + 1,
+            server_seq + 1,
+            TCP_ACK,
+            &[],
+        )));
+        drain_tcp_remote_data_to_sockets(
+            &mut iface,
+            &mut device,
+            &mut sockets,
+            &mut tcp_flows,
+            &mut flow_budget_state,
+        );
+        assert_eq!(
+            sockets.get::<tcp::Socket>(handle).state(),
+            tcp::State::FinWait1
+        );
+        iface.poll(Instant::now(), &mut device, &mut sockets);
+        let mut sent_fin = false;
+        while let Some(packet) = device.pop_outbound() {
+            sent_fin |= ipv4_tcp_header_and_payload(&packet).is_some_and(|tcp| tcp[13] & 0x01 != 0);
+        }
+        assert!(
+            sent_fin,
+            "the closed remote did not reach the client as FIN"
+        );
     }
 
     #[test]
