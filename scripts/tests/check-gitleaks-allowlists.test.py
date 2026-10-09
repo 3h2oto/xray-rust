@@ -21,6 +21,40 @@ ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence i
 
 
 class EvidenceAllowlists(unittest.TestCase):
+    def test_v08_digest_exceptions_keep_path_value_and_rule_scope(self):
+        # Public executable/log digests already reviewed on the v0.8 branch.
+        # Keep controls independent of the configured regexes: broadening an
+        # exception to a whole file, value or rule must fail this test.
+        reviewed = {
+            "docs/device-results/2026-10-03-iphone17-v08/manifest.json":
+                "90b0c79c7487f49ba9cf8faf20bed3603" + "b3450e090602e199d12f319ae22f49b",
+            "docs/benchmarks/results/2026-09-30-v08-cpu/data/verification.json":
+                "fcbfcfe586d891ecf556570acd32ce516" + "0e803498e30fe072d151d0056d23b99",
+            "docs/benchmarks/results/2026-10-02-v08-adaptive-relay/evidence-index.json":
+                "1b7584d75dd361110e1fddb81f9242f58" + "2b02ac681e46b98bcf5ffc65210178b",
+        }
+        other_digest = "e79a0029cc782ff8166c708f8c911ef3" + "9de33563b71a30df2cd2ff1d63d799ab"
+        for path, digest in reviewed.items():
+            with self.subTest(path=path):
+                self.assertEqual(self.scan({path: json.dumps({"xray": digest})}), set())
+                self.assertEqual(self.scan({
+                    path: json.dumps({"xray": other_digest}),
+                    "unreviewed.json": json.dumps({"xray": digest}),
+                }), {(name, "jfrog-identity-token") for name in (path, "unreviewed.json")})
+                synthetic = "ABcdeF01234" + "GHijk56789lMno"
+                self.assertEqual(self.scan({path: json.dumps({"api_key": synthetic})}),
+                                 {(path, "generic-api-key")})
+
+    def test_v08_oracle_key_exception_only_allows_the_reviewed_field(self):
+        path = "tests/fixtures/v08/protocol-primitives.json"
+        command_key = "d34482dca079f1e8" + "ad37ff8d08a382cf"
+        oracle_line = '  "commandKey": "' + command_key + '",\n'
+        self.assertEqual(self.scan({path: oracle_line}), set())
+        self.assertEqual(self.scan({
+            path: json.dumps({"api_key": command_key}),
+            "unreviewed.json": oracle_line,
+        }), {(name, "generic-api-key") for name in (path, "unreviewed.json")})
+
     def scan(self, files):
         binary = os.environ["GITLEAKS_BINARY"]
         with tempfile.TemporaryDirectory(prefix="xray-gitleaks-guards-") as name:
