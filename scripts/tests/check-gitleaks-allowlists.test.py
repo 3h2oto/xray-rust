@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import tomllib
 import unittest
@@ -21,6 +22,29 @@ ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence i
 
 
 class EvidenceAllowlists(unittest.TestCase):
+    def test_vivat_build_hash_exceptions_keep_exact_path_value_and_rule(self):
+        archive_path = "docs/benchmarks/results/2026-10-09-vivat-pr-integration/measurements.tar.gz"
+        other = "e79a0029cc782ff8166c708f8c911ef3" + "9de33563b71a30df2cd2ff1d63d799ab"
+        with tarfile.open(ROOT / archive_path) as archive:
+            for variant in ("baseline", "pr48", "candidate"):
+                member = f"validation/{variant}-build.json"
+                manifest = json.load(archive.extractfile(member))
+                digests = list(manifest["binaries"].values())
+                if variant == "candidate":
+                    digests.append(manifest["xray_core_sha256"])
+                path = archive_path + "!" + member
+                for digest in digests:
+                    with self.subTest(variant=variant, digest=digest):
+                        reviewed = json.dumps({"xray": digest})
+                        self.assertEqual(self.scan({path: reviewed}), set())
+                        self.assertEqual(self.scan({
+                            path: json.dumps({"xray": other}),
+                            "unreviewed.json": reviewed,
+                        }), {(p, "jfrog-identity-token") for p in (path, "unreviewed.json")})
+                synthetic = "ABcdeF01234" + "GHijk56789lMno"
+                self.assertEqual(self.scan({path: json.dumps({"api_key": synthetic})}),
+                                 {(path, "generic-api-key")})
+
     def test_v08_digest_exceptions_keep_path_value_and_rule_scope(self):
         # Public executable/log digests already reviewed on the v0.8 branch.
         # Keep controls independent of the configured regexes: broadening an
