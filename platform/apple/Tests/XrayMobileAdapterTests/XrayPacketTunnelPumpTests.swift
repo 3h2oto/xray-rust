@@ -209,7 +209,7 @@ final class XrayPacketTunnelPumpTests: XCTestCase {
     func testFFIInfoReportsCurrentCapabilities() {
         let info = XrayCore.ffiInfo
 
-        XCTAssertEqual(info.version, XrayFFIVersion(major: 1, minor: 7))
+        XCTAssertEqual(info.version, XrayFFIVersion(major: 1, minor: 8))
         XCTAssertTrue(info.supports(.hysteria2Outbound))
         XCTAssertTrue(info.supports(.wireguardOutbound))
         XCTAssertTrue(info.supports(.profileImport))
@@ -229,7 +229,41 @@ final class XrayPacketTunnelPumpTests: XCTestCase {
         XCTAssertTrue(info.supports(.outboundHealth))
         XCTAssertTrue(info.supports(.connectionManagement))
         XCTAssertTrue(info.supports(.routingPolicyUpdate))
+        XCTAssertTrue(info.supports(.outboundProbe))
+        XCTAssertEqual(XrayFFICapabilities.outboundProbe.rawValue, 1 << 19)
         XCTAssertFalse(info.supports(XrayFFICapabilities(rawValue: 1 << 63)))
+    }
+
+    func testOutboundProbeResultMapsFFIOutcomeKinds() throws {
+        let reachable = try XrayOutboundProbeResult(ffiDelayMs: 42, failureKind: 0, httpStatus: 0)
+        XCTAssertTrue(reachable.isReachable)
+        XCTAssertEqual(reachable.delayMs, 42)
+        XCTAssertNil(reachable.failureKind)
+        XCTAssertNil(reachable.httpStatus)
+
+        let expected: [(Int32, XrayOutboundHealthFailureKind)] = [
+            (1, .timeout),
+            (2, .transport),
+            (3, .tls),
+            (4, .io),
+            (5, .malformedHttpResponse),
+            (6, .httpStatus),
+        ]
+        for (rawKind, kind) in expected {
+            let result = try XrayOutboundProbeResult(
+                ffiDelayMs: 0,
+                failureKind: rawKind,
+                httpStatus: 503
+            )
+            let expectedStatus: UInt16? = kind == .httpStatus ? 503 : nil
+            XCTAssertFalse(result.isReachable)
+            XCTAssertNil(result.delayMs)
+            XCTAssertEqual(result.failureKind, kind)
+            XCTAssertEqual(result.httpStatus, expectedStatus)
+        }
+        XCTAssertThrowsError(
+            try XrayOutboundProbeResult(ffiDelayMs: 0, failureKind: 7, httpStatus: 0)
+        )
     }
 
     func testRoutingPolicySnapshotDecodesVersionedWireContract() throws {

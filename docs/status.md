@@ -59,6 +59,7 @@ recorded with its original RC identity.
 | Connection management | Supported | ABI 1.3 plus equivalent Swift/Kotlin APIs expose revisioned typed inventory and addressable cancellation for routed SOCKS TCP/UDP, HTTP TCP, and TUN TCP/UDP opening and active flows; cumulative per-outbound byte/connection accounting survives host close. |
 | Structured diagnostics | Supported | The capability-gated C queues and equivalent Swift/Kotlin APIs expose typed TUN TCP slow-flow, flow-summary, remote-write-slow, and open-error events plus UDP slow-flow, response-gap, and QUIC-blocked events. |
 | Startup probe and runtime stats | Supported | Core and FFI integration tests |
+| On-demand outbound probe | Supported | ABI 1.8 plus Swift/Kotlin run one host-scheduled HTTP(S) probe through a leaf outbound and return its delay or typed failure without changing health or selector state; core, FFI, header, and JVM tests |
 
 ## Configuration scope
 

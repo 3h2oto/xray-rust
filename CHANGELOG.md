@@ -26,6 +26,13 @@ long-term supported release series.
   closed.
 - Close TUN TCP flows whose remote closes before the client's handshake ACK
   without waiting for another client segment.
+- Added a capability-gated on-demand outbound probe in C ABI 1.8 and the
+  Swift/Kotlin adapters. A host heartbeat can send one bounded HTTP(S) probe
+  through a leaf outbound of a running core, selected by tag or the default
+  outbound, and receive its delay or a typed failure matching the health
+  snapshot categories. Invalid URLs, timeouts outside 1 to 60000 ms, and
+  unknown tags are rejected before any network activity; results do not change
+  health snapshots or selector state, and diagnostics stay redacted.
 
 ## 0.7.0 - 2026-09-27
 
