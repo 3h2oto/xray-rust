@@ -10,6 +10,14 @@ long-term supported release series.
 
 ## Unreleased
 
+- Fix `xtls-rprx-vision` direct mode over plain TLS on the raw transport.
+  Direct reads and writes now use the connection beneath the TLS session, as
+  they already did beneath REALITY and as Xray-core does, instead of staying
+  inside the session. Previously an inner TLS session carried through
+  VLESS + TLS + Vision to Xray-core failed with EOF right after its handshake.
+  Local Xray-core interop now carries a real inner TLS session through TLS
+  Vision as well as REALITY Vision, including a bulk round in each direction.
+
 ## 0.7.0 - 2026-09-27
 
 Stable source release. Canonical SDK packages and their publication status are

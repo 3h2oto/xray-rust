@@ -80,6 +80,15 @@ runtime currently selects the first user. With `encryption: "none"`, optional
 - `xtls-rprx-vision`;
 - `xtls-rprx-vision-udp443`.
 
+On the raw transport, Vision switches each direction to direct mode on its own,
+as Xray-core does. After the peer's `Direct` command the downlink is read from
+the connection beneath TLS or REALITY — the socket, or the chained carrier
+under `proxySettings` — while the uplink stays inside the session until this
+side sends its own `Direct`. Until then, reads beneath a Vision flow stop at
+TLS record boundaries so the outer session never consumes the cleartext that
+follows its last record; a flow without Vision, or one that resolves to
+`End`, drops that alignment.
+
 The development `0.6` line also accepts bounded
 `mlkem768x25519plus.{native|xorpub|random}.{1rtt|0rtt}` configurations with one
 to eight ordered canonical unpadded base64url X25519 (32-byte) or ML-KEM-768
