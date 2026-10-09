@@ -740,7 +740,7 @@ Java_org_xrayrust_mobile_XrayCore_nativeCloseConnection(
 } XRAY_JNI_CATCH_VOID(env)
 
 // Blocks for at most timeout_ms. The Kotlin caller holds the data-path read
-// lock, so lifecycle calls wait for the probe instead of freeing the handle.
+// lock. Lifecycle calls cancel probes, then drain readers before freeing.
 extern "C" JNIEXPORT jlongArray JNICALL
 Java_org_xrayrust_mobile_XrayCore_nativeProbeOutboundUrl(
     JNIEnv *env,
@@ -1166,6 +1166,18 @@ Java_org_xrayrust_mobile_XrayCore_nativeStart(JNIEnv *env, jobject, jlong handle
 
   XrayError *error = nullptr;
   XrayStatus status = xray_core_start(native->core, &error);
+  check_status(env, status, error);
+} XRAY_JNI_CATCH_VOID(env)
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_xrayrust_mobile_XrayCore_nativeCancelOutboundProbes(
+    JNIEnv *env, jobject, jlong handle) try {
+  NativeCore *native = core_from_handle(handle);
+  if (native == nullptr || native->core == nullptr) {
+    return;
+  }
+  XrayError *error = nullptr;
+  XrayStatus status = xray_core_cancel_outbound_probes(native->core, &error);
   check_status(env, status, error);
 } XRAY_JNI_CATCH_VOID(env)
 

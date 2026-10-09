@@ -35,7 +35,7 @@ enum class XrayFfiCapability(val mask: Long) {
     Hysteria2Outbound(1L shl 16),
     WireguardOutbound(1L shl 17),
     ProfileImport(1L shl 18),
-    OutboundProbe(1L shl 19),
+    OutboundProbe(1L shl 22),
 }
 
 data class XrayFfiInfo(
@@ -695,7 +695,7 @@ class XrayCore private constructor(handle: Long) : Closeable {
      * selector overrides are bypassed, and health snapshots are not updated.
      *
      * Blocks the calling thread for at most [timeoutMs], so call it off the main thread. [stop]
-     * and [close] wait for an in-flight probe. An empty [url], a [timeoutMs] outside 1..60000, or
+     * and [close] cancel probes before draining shared calls. An empty [url], a [timeoutMs] outside 1..60000, or
      * an argument with an embedded NUL throws [IllegalArgumentException]. A non-empty unsupported
      * URL, an unknown [outboundTag], or a missing default outbound throws [XrayCoreException]
      * with code INVALID_ARGUMENT (9). Neither makes any network call.
@@ -827,6 +827,7 @@ class XrayCore private constructor(handle: Long) : Closeable {
     }
 
     override fun close() {
+        cancelOutboundProbesForLifecycle()
         // Zero the handle under the write lock so no concurrent data-path caller can observe
         // (and pass to native code) a handle that is about to be freed.
         val handle = lifecycleLock.write {
@@ -914,11 +915,21 @@ class XrayCore private constructor(handle: Long) : Closeable {
         }
     }
 
-    private inline fun <T> withLifecycleHandle(block: (Long) -> T): T =
-        lifecycleLock.write {
+    private fun cancelOutboundProbesForLifecycle() = lifecycleLock.read {
+        if (nativeHandle != 0L && ffiInfo().supports(XrayFfiCapability.OutboundProbe)) {
+            nativeCancelOutboundProbes(nativeHandle)
+        }
+    }
+
+    private inline fun <T> withLifecycleHandle(block: (Long) -> T): T {
+        // Cancel under a shared lock before waiting for probe readers. The
+        // native latch also rejects probes racing this read-to-write transition.
+        cancelOutboundProbesForLifecycle()
+        return lifecycleLock.write {
             check(nativeHandle != 0L) { "xray core is closed" }
             block(nativeHandle)
         }
+    }
 
     private inline fun <T> withDataPathHandle(block: (Long) -> T): T =
         lifecycleLock.read {
@@ -930,6 +941,7 @@ class XrayCore private constructor(handle: Long) : Closeable {
     private external fun nativeConfigWarnings(handle: Long): String?
     private external fun nativeStart(handle: Long)
     private external fun nativeStop(handle: Long)
+    private external fun nativeCancelOutboundProbes(handle: Long)
     private external fun nativeFree(handle: Long)
     private external fun nativeSetOutboundSelectorOverride(
         handle: Long,

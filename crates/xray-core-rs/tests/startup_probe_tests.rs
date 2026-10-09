@@ -775,6 +775,51 @@ async fn outbound_probe_rejects_invalid_requests_without_network_activity() {
 }
 
 #[tokio::test]
+async fn outbound_probe_cancellation_drains_all_probes_and_rejects_late_dials() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let mut core = outbound_probe_core(addr);
+    // Adapter initialization must not accidentally disable probes.
+    core.cancel_outbound_probes();
+    core.start().await.unwrap();
+    let health_before = core.outbound_health_snapshot();
+    let options = outbound_probe(probe_url(addr), MAX_OUTBOUND_PROBE_TIMEOUT, None);
+    let probes = async {
+        tokio::join!(
+            core.probe_outbound_url(options.clone()),
+            core.probe_outbound_url(options.clone()),
+        )
+    };
+    let cancel = async {
+        let (_first, _) = listener.accept().await.unwrap();
+        let (_second, _) = listener.accept().await.unwrap();
+        core.cancel_outbound_probes();
+        core.cancel_outbound_probes();
+        // Keep both peers open until the cancelled futures return.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+    let ((first, second), ()) = tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::join!(probes, cancel)
+    })
+    .await
+    .expect("60-second probes must promptly drain on cancellation");
+    assert_eq!(first, Err(OutboundProbeError::Cancelled));
+    assert_eq!(second, Err(OutboundProbeError::Cancelled));
+    assert_eq!(
+        core.probe_outbound_url(options).await,
+        Err(OutboundProbeError::Cancelled)
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), listener.accept())
+            .await
+            .is_err()
+    );
+    assert_eq!(core.outbound_health_snapshot(), health_before);
+    assert_eq!(core.state(), CoreState::Running);
+    core.stop().await.unwrap();
+}
+
+#[tokio::test]
 async fn outbound_probe_reports_missing_default_outbound() {
     let mut config = config_with_outbounds(Vec::new(), None);
     config.default_outbound_tag = None;

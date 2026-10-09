@@ -388,6 +388,7 @@ pub struct Core {
     config: Arc<CoreConfig>,
     state: CoreState,
     shutdown: Shutdown,
+    probe_shutdown: Shutdown,
     tun: Arc<TunEndpoint>,
     runtime: Option<RuntimeState>,
     dns_resolver: Arc<dyn DnsResolver>,
@@ -656,6 +657,7 @@ impl Core {
             config,
             state: CoreState::Created,
             shutdown,
+            probe_shutdown: Shutdown::new(),
             tun,
             runtime: None,
             dns_resolver: dns.destination,
@@ -764,6 +766,18 @@ impl Core {
         self.outbound_factory().rebind_wireguard()
     }
 
+    /// Cancels current and future on-demand probes on a running core.
+    ///
+    /// This shared, nonblocking teardown step lets hosts drain shared probe
+    /// calls before taking their exclusive lifecycle lock. It leaves normal
+    /// traffic and health state untouched. Creating a new core resets the latch;
+    /// calling this before start is a no-op.
+    pub fn cancel_outbound_probes(&self) {
+        if self.state == CoreState::Running {
+            self.probe_shutdown.signal();
+        }
+    }
+
     /// Runs one host-requested HTTP(S) probe through a leaf outbound.
     ///
     /// `options.outbound_tag` names a configured leaf outbound; `None` uses the
@@ -785,6 +799,7 @@ impl Core {
             _ => return Err(OutboundProbeError::NotRunning),
         };
         startup_probe::validate_outbound_probe(&options, self.outbound_graph())?;
+        let mut cancellation = self.probe_shutdown.subscribe();
 
         let probe_url = startup_probe::diagnostic_probe_url(&options.url);
         let timeout_ms = options.timeout.as_millis();
@@ -798,15 +813,24 @@ impl Core {
                 "Debug outboundProbe start url={probe_url} timeoutMs={timeout_ms} outbound={outbound}"
             )
         });
-        let result = startup_probe::run_outbound_url_probe(
-            self.outbound_router.as_ref(),
-            options,
-            dns.destination.as_ref(),
-            dns.bootstrap.as_ref(),
-            self.transport_dialer.as_ref(),
-            "xray-rust-outbound-probe",
-        )
-        .await;
+        let result = tokio::select! {
+            biased;
+            _ = async {
+                while !*cancellation.borrow_and_update() {
+                    if cancellation.changed().await.is_err() {
+                        break;
+                    }
+                }
+            } => return Err(OutboundProbeError::Cancelled),
+            result = startup_probe::run_outbound_url_probe(
+                self.outbound_router.as_ref(),
+                options,
+                dns.destination.as_ref(),
+                dns.bootstrap.as_ref(),
+                self.transport_dialer.as_ref(),
+                "xray-rust-outbound-probe",
+            ) => result,
+        };
         let outcome = match result {
             Ok(delay) => {
                 self.runtime_logger.debug(|| {
@@ -1137,6 +1161,7 @@ impl Core {
     }
 
     pub async fn stop(&mut self) -> Result<(), CoreError> {
+        self.probe_shutdown.signal();
         self.shutdown.signal();
         self.outbound_factory().close_sessions();
         if let Some(runtime) = self.runtime.take() {

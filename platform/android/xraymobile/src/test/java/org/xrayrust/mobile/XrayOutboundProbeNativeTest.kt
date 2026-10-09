@@ -9,10 +9,11 @@ import org.junit.Test
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Optional host JNI integration for the ABI 1.8 outbound probe; run with the current native
+ * Optional host JNI integration for the ABI 1.9 outbound probe; run with the current native
  * libraries (see scripts/test-profile-import-jni.sh), not Android stubs.
  */
 class XrayOutboundProbeNativeTest {
@@ -74,6 +75,61 @@ class XrayOutboundProbeNativeTest {
             }
             worker.join(TimeUnit.SECONDS.toMillis(5))
             serverError.get()?.let { throw it }
+        }
+    }
+
+    @Test
+    fun stopAndCloseCancelStalledSixtySecondProbes() {
+        enabled()
+        for (close in listOf(false, true)) {
+            ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { server ->
+                server.soTimeout = 5_000
+                val accepted = CountDownLatch(1)
+                val releaseServer = CountDownLatch(1)
+                val serverError = AtomicReference<Throwable?>()
+                val serverWorker = Thread {
+                    try {
+                        server.accept().use {
+                            accepted.countDown()
+                            releaseServer.await(10, TimeUnit.SECONDS)
+                        }
+                    } catch (error: Throwable) {
+                        serverError.set(error)
+                    }
+                }
+                val core = XrayCore.create(SOCKS_FREEDOM_CONFIG)
+                core.start()
+                serverWorker.start()
+                val probeError = AtomicReference<Throwable?>()
+                val finished = CountDownLatch(1)
+                val probeWorker = Thread {
+                    try {
+                        core.probeOutboundUrl("http://127.0.0.1:${server.localPort}/", 60_000)
+                    } catch (error: Throwable) {
+                        probeError.set(error)
+                    } finally {
+                        finished.countDown()
+                    }
+                }
+                probeWorker.start()
+                try {
+                    assertTrue("probe must connect", accepted.await(5, TimeUnit.SECONDS))
+                    val started = System.nanoTime()
+                    if (close) core.close() else core.stop()
+                    assertTrue("teardown must cancel without waiting for timeout",
+                        System.nanoTime() - started < TimeUnit.SECONDS.toNanos(2))
+                    assertTrue(finished.await(2, TimeUnit.SECONDS))
+                    val error = probeError.get()
+                    assertTrue("expected cancellation, got $error", error is XrayCoreException)
+                    assertEquals(XRAY_STATUS_RUNTIME_ERROR, (error as XrayCoreException).code)
+                } finally {
+                    releaseServer.countDown()
+                    serverWorker.join(5_000)
+                    probeWorker.join(5_000)
+                    core.close()
+                }
+                serverError.get()?.let { throw it }
+            }
         }
     }
 

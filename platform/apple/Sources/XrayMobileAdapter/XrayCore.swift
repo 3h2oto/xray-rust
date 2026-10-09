@@ -570,9 +570,18 @@ final class XrayCoreCallGate: @unchecked Sendable {
         return try body()
     }
 
-    func withLifecycle<T>(_ body: () throws -> T) rethrows -> T {
+    func withLifecycle<T>(
+        beforeWaiting: () -> Void = {},
+        _ body: () throws -> T
+    ) rethrows -> T {
         condition.lock()
         waitingLifecycleCalls += 1
+        // The handle is stable once another exclusive caller has left. Cancel
+        // probes while shared calls still run, before waiting for them to drain.
+        while lifecycleCallActive {
+            condition.wait()
+        }
+        beforeWaiting()
         while lifecycleCallActive || activeDataPathCalls > 0 {
             condition.wait()
         }
@@ -1060,7 +1069,7 @@ public final class XrayCore: @unchecked Sendable {
     }
 
     deinit {
-        callGate.withLifecycle {
+        callGate.withLifecycle(beforeWaiting: cancelOutboundProbesForLifecycle) {
             dataPathEnabled = false
             if let handle {
                 self.handle = nil
@@ -1244,17 +1253,23 @@ public final class XrayCore: @unchecked Sendable {
     /// uses the default outbound; routing rules and selector overrides are
     /// bypassed, and health snapshots are not updated. Blocks the caller for at
     /// most `timeoutMs` (1...60_000), so call it off the main thread; lifecycle
-    /// calls wait for an in-flight probe. Requires ABI 1.8.
+    /// calls cancel probes before waiting for shared calls. Requires ABI 1.9.
     public func probeOutboundURL(
         _ url: String,
         timeoutMs: UInt64 = 5_000,
         outboundTag: String? = nil
     ) throws -> XrayOutboundProbeResult {
         let version = Self.ffiInfo.version
-        guard version.minor >= 8 else {
-            throw XrayCoreError.incompatibleFFIMinorVersion(required: 8, actual: version.minor)
+        guard version.minor >= 9 else {
+            throw XrayCoreError.incompatibleFFIMinorVersion(required: 9, actual: version.minor)
         }
         try requireCapability(.outboundProbe)
+        guard !url.utf8.contains(0), !(outboundTag?.utf8.contains(0) ?? false) else {
+            throw XrayCoreError.status(
+                code: XRAY_STATUS_INVALID_ARGUMENT,
+                message: "outbound probe arguments must not contain NUL"
+            )
+        }
         return try withDataPathHandle { handle in
             var error: OpaquePointer?
             var delayMs: UInt64 = 0
@@ -1807,11 +1822,17 @@ public final class XrayCore: @unchecked Sendable {
     }
 
     private func withLifecycleHandle<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
-        try callGate.withLifecycle {
+        try callGate.withLifecycle(beforeWaiting: cancelOutboundProbesForLifecycle) {
             guard let handle else {
                 throw XrayCoreError.missingHandle
             }
             return try body(handle)
+        }
+    }
+
+    private func cancelOutboundProbesForLifecycle() {
+        if let handle, Self.ffiInfo.supports(.outboundProbe) {
+            _ = xray_core_cancel_outbound_probes(handle, nil)
         }
     }
 

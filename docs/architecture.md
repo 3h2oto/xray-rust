@@ -94,7 +94,7 @@ dial path, but selects each configured leaf directly by tag. Health writes and
 snapshots are serialized by the overlay update lock; flow selection reads only
 atomics. Release/acquire publication makes a successful delay visible before
 the healthy state, while stopped cores abort the observer with every other
-runtime task. Host-requested outbound probes (ABI 1.8) reuse the same dial path
+runtime task. Host-requested outbound probes (ABI 1.9) reuse the same dial path
 and the running core's DNS resolvers on the calling thread, are bounded by the
 caller's timeout, and leave the health overlay untouched.
 

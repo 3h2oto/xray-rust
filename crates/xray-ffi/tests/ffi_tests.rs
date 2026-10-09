@@ -6,13 +6,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use xray_ffi::{
-    xray_core_clear_outbound_selector_override, xray_core_close_connection,
-    xray_core_config_warnings, xray_core_connection_snapshot_json, xray_core_free,
-    xray_core_load_config_json, xray_core_new, xray_core_outbound_accounting_snapshot_json,
-    xray_core_outbound_health_snapshot_json, xray_core_outbound_selection_snapshot_json,
-    xray_core_probe_outbound_url, xray_core_replace_routing_policy_json,
-    xray_core_routing_policy_snapshot_json, xray_core_set_dns_bootstrap_mode,
-    xray_core_set_file_logging, xray_core_set_geodata_search_dir,
+    xray_core_cancel_outbound_probes, xray_core_clear_outbound_selector_override,
+    xray_core_close_connection, xray_core_config_warnings, xray_core_connection_snapshot_json,
+    xray_core_free, xray_core_load_config_json, xray_core_new,
+    xray_core_outbound_accounting_snapshot_json, xray_core_outbound_health_snapshot_json,
+    xray_core_outbound_selection_snapshot_json, xray_core_probe_outbound_url,
+    xray_core_replace_routing_policy_json, xray_core_routing_policy_snapshot_json,
+    xray_core_set_dns_bootstrap_mode, xray_core_set_file_logging, xray_core_set_geodata_search_dir,
     xray_core_set_geodata_search_dir_exclusive, xray_core_set_outbound_selector_override,
     xray_core_set_socket_protect_callback, xray_core_set_startup_probe,
     xray_core_set_tun_collect_tcp_timings, xray_core_set_tun_fd, xray_core_set_tun_runtime_profile,
@@ -425,6 +425,89 @@ fn ffi_outbound_probe_reports_typed_failures_within_timeout() {
     assert_eq!((outputs.delay_ms, outputs.http_status), (0, 0));
 
     assert_eq!(unsafe { xray_core_stop(core, &mut err) }, XrayStatus::Ok);
+    unsafe { xray_core_free(core) };
+}
+
+#[test]
+fn ffi_outbound_probe_cancellation_unblocks_shared_calls_before_stop() {
+    let mut err = std::ptr::null_mut();
+    assert_eq!(
+        unsafe { xray_core_cancel_outbound_probes(std::ptr::null_mut(), &mut err) },
+        XrayStatus::NullArgument
+    );
+    assert_error(&mut err, XrayStatus::NullArgument, "core handle is null");
+    let unloaded = unsafe { xray_core_new(&mut err) };
+    assert_eq!(
+        unsafe { xray_core_cancel_outbound_probes(unloaded, &mut err) },
+        XrayStatus::Ok
+    );
+    unsafe { xray_core_free(unloaded) };
+
+    let core = started_freedom_core(&mut err);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = CString::new(format!("http://{}/health", listener.local_addr().unwrap())).unwrap();
+    // Shared FFI calls use distinct error/output storage. Free only after join.
+    let address = core as usize;
+    let probe_url = url.clone();
+    let (done_tx, done_rx) = mpsc::channel();
+    let worker = thread::spawn(move || {
+        let mut probe_error = std::ptr::null_mut();
+        let result = probe_outbound(
+            address as *mut _,
+            &probe_url,
+            60_000,
+            None,
+            &mut probe_error,
+        );
+        assert_error(&mut probe_error, XrayStatus::RuntimeError, "cancelled");
+        done_tx.send(result).unwrap();
+    });
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let (_peer, _) = loop {
+        match listener.accept() {
+            Ok(peer) => break peer,
+            Err(error)
+                if error.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline =>
+            {
+                thread::sleep(Duration::from_millis(5));
+            }
+            Err(error) => panic!("probe did not connect: {error}"),
+        }
+    };
+    assert_eq!(
+        unsafe { xray_core_cancel_outbound_probes(core, &mut err) },
+        XrayStatus::Ok
+    );
+    assert_eq!(
+        done_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+        (XrayStatus::RuntimeError, NO_PROBE_OUTPUT)
+    );
+    worker.join().unwrap();
+    assert_eq!(
+        probe_outbound(core, &url, 60_000, None, &mut err),
+        (XrayStatus::RuntimeError, NO_PROBE_OUTPUT)
+    );
+    assert_error(&mut err, XrayStatus::RuntimeError, "cancelled");
+    assert_eq!(
+        listener.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+    assert_eq!(unsafe { xray_core_stop(core, &mut err) }, XrayStatus::Ok);
+
+    unsafe { xray_core_free(core) };
+
+    // A new handle creates a fresh cancellation latch.
+    let core = started_freedom_core(&mut err);
+    let server = spawn_startup_probe_server_once();
+    let url = CString::new(format!("http://{}/health", server.addr)).unwrap();
+    let (status, output) = probe_outbound(core, &url, 5_000, None, &mut err);
+    assert_eq!(status, XrayStatus::Ok, "{}", error_message(err));
+    assert_eq!(
+        output.failure_kind,
+        XrayOutboundProbeFailureKind::None as i32
+    );
+    server.wait();
     unsafe { xray_core_free(core) };
 }
 

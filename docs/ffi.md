@@ -8,7 +8,7 @@ source of truth for declarations and enum values.
 ## ABI version
 
 Call `xray_ffi_version_major()` and `xray_ffi_version_minor()` before creating a
-handle. The current ABI version is `1.8`. The checked-in Swift and JNI adapters
+handle. The current ABI version is `1.9`. The checked-in Swift and JNI adapters
 reject any major other than `1` and require minor `1` or newer. Their selector
 and health methods require the corresponding ABI 1.2 capability bits; their
 connection-management methods require the ABI 1.3 capability bit, and routing
@@ -17,7 +17,7 @@ symbols. Profile import requires minor >=5, `PROFILE_IMPORT` and the selected
 `HYSTERIA2_OUTBOUND` or `WIREGUARD_OUTBOUND` capability.
 WireGuard carrier rebind requires minor >=6 and `WIREGUARD_OUTBOUND`.
 Hysteria carrier rebind requires minor >=7 and `HYSTERIA2_OUTBOUND`.
-The on-demand outbound probe requires minor >=8 and `OUTBOUND_PROBE`.
+The on-demand outbound probe requires minor >=9 and `OUTBOUND_PROBE`.
 
 An incompatible function signature, enum representation, ownership rule, or
 required struct layout requires a major version change. Consumers should
@@ -203,13 +203,15 @@ this decoding and expose equivalent public operations.
 
 ## On-demand outbound probe
 
-ABI 1.8 adds `XRAY_FFI_CAPABILITY_OUTBOUND_PROBE` and
+ABI 1.9 adds `XRAY_FFI_CAPABILITY_OUTBOUND_PROBE` (bit 22) and
 `xray_core_probe_outbound_url(handle, url, timeout_ms, outbound_tag, delay_ms,
 failure_kind, http_status, error)`. It lets a host measure one outbound when its
 own scheduler decides, for example a VPN tunnel heartbeat with immediate
 retries or a check after the device wakes. The configured observatory remains
 schedule-driven with a fixed 5-second probe timeout, and the startup probe runs
-only inside `xray_core_start` without reporting its delay.
+only inside `xray_core_start` without reporting its delay. Bits 19–21 and ABI
+1.8 remain reserved for the separate v0.8 client-protocol branch, so merging
+that work later cannot reinterpret the probe capability.
 
 The call sends one HTTP(S) `GET` through the startup probe's parser and dial
 path: only `http` and `https` URLs without userinfo, fragments, or IPv6
@@ -224,7 +226,7 @@ bypassed, and DNS uses the running core's resolvers, as for the observatory.
 | --- | --- | --- |
 | `OK` | The probe ran | `failure_kind` is `NONE` and `delay_ms` is set for a 2xx/3xx status line; otherwise `failure_kind` names the failure, `delay_ms` is 0, and `http_status` is set only for `HTTP_STATUS` |
 | `INVALID_ARGUMENT` | Empty or unsupported URL, timeout outside 1..=60000, unknown tag, or no default outbound; no network activity | Zero |
-| `RUNTIME_ERROR` | The loaded core is not running | Zero |
+| `RUNTIME_ERROR` | The loaded core is not running, or teardown cancelled the probe | Zero |
 | `NULL_ARGUMENT` / `INVALID_UTF8` / `CORE_NOT_LOADED` | Caller contract violation | Zero when the output pointers are valid |
 
 `delay_ms`, `failure_kind`, and `http_status` are required and zeroed on entry.
@@ -242,6 +244,14 @@ outbound dials. The probe does not update health snapshots, selector state, the
 connection inventory, or outbound accounting. Error messages and runtime debug
 log lines never contain the URL host, path, query, or transport error strings.
 
+`xray_core_cancel_outbound_probes(handle, error)` is a nonblocking shared
+teardown step in the same capability. It cancels all current and future probes
+on that running core. Cancellation returns `RUNTIME_ERROR` with zero outputs,
+without publishing a health failure. It is idempotent and a no-op before start
+or before config load. Create a new handle and load its config to enable probes again. Raw C hosts must
+cancel, drain shared callers, then acquire exclusive access for stop/load/free;
+cancellation alone does not make lifecycle calls safe to overlap a probe.
+
 It is a shared call: it may overlap packet, statistics, snapshot, and other
 shared calls, including other probes, but not load/start/stop/free. Each
 in-flight call blocks its caller and holds at most one outbound connection, so
@@ -249,8 +259,8 @@ hosts should run one heartbeat at a time. Do not call it from a thread that
 drives the core runtime, such as the socket-protect callback. The Swift
 `probeOutboundURL(_:timeoutMs:outboundTag:)` and Kotlin
 `probeOutboundUrl(url, timeoutMs, outboundTag)` methods check the capability,
-run under the adapters' data-path gate so `stop`/`close` wait for an in-flight
-probe, and return typed results with the health failure kinds.
+run under the adapters' data-path gate; lifecycle calls cancel probes before
+waiting for shared calls, and return typed results with the health failure kinds.
 
 ## Routing-policy replacement
 

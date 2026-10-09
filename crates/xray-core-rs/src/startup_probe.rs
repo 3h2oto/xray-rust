@@ -107,11 +107,14 @@ pub enum OutboundProbeOutcome {
     Failed(OutboundHealthFailure),
 }
 
-/// A host-requested outbound probe rejected before any network activity.
+/// A host-requested outbound probe rejected before network activity or cancelled
+/// during teardown. Cancellation does not report an outbound health failure.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum OutboundProbeError {
     #[error("core is not running")]
     NotRunning,
+    #[error("outbound probe cancelled for core teardown")]
+    Cancelled,
     #[error("unsupported outbound probe URL")]
     UnsupportedUrl,
     #[error(

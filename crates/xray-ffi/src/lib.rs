@@ -28,7 +28,7 @@ use xray_tun::TunTcpSlowFlowKind;
 use zeroize::Zeroize;
 
 pub const XRAY_FFI_ABI_MAJOR: u32 = 1;
-pub const XRAY_FFI_ABI_MINOR: u32 = 8;
+pub const XRAY_FFI_ABI_MINOR: u32 = 9;
 
 pub const XRAY_FFI_CAPABILITY_CONFIG_WARNINGS: u64 = 1 << 0;
 pub const XRAY_FFI_CAPABILITY_GEODATA_SEARCH: u64 = 1 << 1;
@@ -50,7 +50,8 @@ pub const XRAY_FFI_CAPABILITY_ROUTING_POLICY_UPDATE: u64 = 1 << 15;
 pub const XRAY_FFI_CAPABILITY_HYSTERIA2_OUTBOUND: u64 = 1 << 16;
 pub const XRAY_FFI_CAPABILITY_WIREGUARD_OUTBOUND: u64 = 1 << 17;
 pub const XRAY_FFI_CAPABILITY_PROFILE_IMPORT: u64 = 1 << 18;
-pub const XRAY_FFI_CAPABILITY_OUTBOUND_PROBE: u64 = 1 << 19;
+// Bits 19..=21 and ABI 1.8 are reserved for the independent v0.8 client work.
+pub const XRAY_FFI_CAPABILITY_OUTBOUND_PROBE: u64 = 1 << 22;
 
 pub const XRAY_FFI_CAPABILITIES: u64 = XRAY_FFI_CAPABILITY_CONFIG_WARNINGS
     | XRAY_FFI_CAPABILITY_GEODATA_SEARCH
@@ -121,7 +122,7 @@ pub enum XrayDnsBootstrapMode {
     StaticOnly = 1,
 }
 
-/// Outcome category written by [`xray_core_probe_outbound_url`] (ABI 1.8).
+/// Outcome category written by [`xray_core_probe_outbound_url`] (ABI 1.9).
 ///
 /// The values other than `None` mirror the `lastFailureKind` categories of the
 /// outbound health snapshot. The C ABI transports them as `int32_t`.
@@ -1591,8 +1592,40 @@ pub unsafe extern "C" fn xray_core_rebind_hysteria(
     }
 }
 
+/// Cancels current and future on-demand probes before exclusive teardown
+/// (ABI 1.9, `OUTBOUND_PROBE`). Nonblocking, idempotent, and a no-op before
+/// start or when no config is loaded. Normal traffic and health are unaffected.
+/// Creating a new handle and loading its config enables probes again.
+///
+/// # Safety
+///
+/// `handle` must be null or a live core handle. This is a shared call: it may
+/// overlap probes and other shared calls, but not lifecycle/free. After this
+/// returns, drain all shared calls before calling stop/load/free. If `error`
+/// is non-null it must point to an initialized, library-owned error pointer
+/// or null, exclusively accessible by this call.
+#[no_mangle]
+pub unsafe extern "C" fn xray_core_cancel_outbound_probes(
+    handle: *mut XrayCoreHandle,
+    error: *mut *mut XrayError,
+) -> XrayStatus {
+    unsafe {
+        ffi_status(error, || {
+            clear_error(error);
+            let handle = match shared_handle(handle, error) {
+                Ok(handle) => handle,
+                Err(status) => return status,
+            };
+            if let Some(core) = handle.core.as_ref() {
+                core.cancel_outbound_probes();
+            }
+            XrayStatus::Ok
+        })
+    }
+}
+
 /// Sends one HTTP(S) GET through a leaf outbound of a running core and
-/// reports its latency or typed failure (ABI 1.8, `OUTBOUND_PROBE`).
+/// reports its latency or typed failure (ABI 1.9, `OUTBOUND_PROBE`).
 ///
 /// `outbound_tag` may be null or empty to use the default outbound; otherwise
 /// it must name a configured leaf outbound. Routing rules, balancers, and
@@ -1602,7 +1635,8 @@ pub unsafe extern "C" fn xray_core_rebind_hysteria(
 /// line, or another kind with `delay_ms` zero; `http_status` is nonzero only
 /// for `HTTP_STATUS`. Unsupported URLs, out-of-range timeouts, and unknown tags
 /// return `INVALID_ARGUMENT` without network activity; a loaded core that is
-/// not running returns `RUNTIME_ERROR`. Outputs are zeroed on entry. The probe
+/// not running or a probe cancelled for teardown returns `RUNTIME_ERROR`.
+/// Outputs are zeroed on entry. The probe
 /// does not update health snapshots, selector state, or accounting.
 ///
 /// # Safety
@@ -1713,7 +1747,9 @@ unsafe fn xray_core_probe_outbound_url_inner(
         }
         Err(source) => {
             let status = match source {
-                OutboundProbeError::NotRunning => XrayStatus::RuntimeError,
+                OutboundProbeError::NotRunning | OutboundProbeError::Cancelled => {
+                    XrayStatus::RuntimeError
+                }
                 OutboundProbeError::UnsupportedUrl
                 | OutboundProbeError::InvalidTimeout
                 | OutboundProbeError::UnknownOutbound

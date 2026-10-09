@@ -202,10 +202,11 @@ typedef enum XrayFfiCapability {
   XRAY_FFI_CAPABILITY_HYSTERIA2_OUTBOUND = 1 << 16,
   XRAY_FFI_CAPABILITY_WIREGUARD_OUTBOUND = 1 << 17,
   XRAY_FFI_CAPABILITY_PROFILE_IMPORT = 1 << 18,
-  XRAY_FFI_CAPABILITY_OUTBOUND_PROBE = 1 << 19
+  /* Bits 19..21 are reserved for the independent v0.8 client work. */
+  XRAY_FFI_CAPABILITY_OUTBOUND_PROBE = 1 << 22
 } XrayFfiCapability;
 
-/* ABI 1.8. Outcome written by xray_core_probe_outbound_url through an int32_t.
+/* ABI 1.9. Outcome written by xray_core_probe_outbound_url through an int32_t.
  * Failure kinds mirror the outbound health snapshot's lastFailureKind. */
 typedef enum XrayOutboundProbeFailureKind {
   XRAY_OUTBOUND_PROBE_FAILURE_NONE = 0,
@@ -338,14 +339,21 @@ XrayStatus xray_core_rebind_hysteria(
     XrayCoreHandle *handle,
     uint64_t *accepted,
     XrayError **error);
-/* ABI 1.8, OUTBOUND_PROBE. Blocks for at most timeout_ms (1..=60000) while one
+/* ABI 1.9, OUTBOUND_PROBE. Nonblocking, shared teardown preparation. Cancels
+ * current AND future probes on a running core; no-op before start/unloaded.
+ * Then drain shared calls before exclusive stop/load/free. A new handle with loaded config
+ * resets the latch. Normal traffic and health state are unaffected. */
+XrayStatus xray_core_cancel_outbound_probes(
+    XrayCoreHandle *handle,
+    XrayError **error);
+/* ABI 1.9, OUTBOUND_PROBE. Blocks for at most timeout_ms (1..=60000) while one
  * HTTP(S) GET (URL rules as the startup probe) goes through a leaf outbound of a
  * running core, bypassing routing and selectors; a NULL/empty outbound_tag uses
  * the default outbound. delay_ms, failure_kind and http_status are required and
  * zeroed on entry. OK means the probe ran: failure_kind NONE with delay_ms for
  * a 2xx/3xx status line, else a failure kind; http_status is set only for
  * HTTP_STATUS. Bad URL/timeout/tag: INVALID_ARGUMENT, no network. Loaded but
- * not running: RUNTIME_ERROR. No health/selector/accounting side effects.
+ * not running or cancelled: RUNTIME_ERROR. No health/selector/accounting side effects.
  * Concurrent with data-path/snapshot calls, but not lifecycle/free; never call
  * it from the socket-protect callback. */
 XrayStatus xray_core_probe_outbound_url(

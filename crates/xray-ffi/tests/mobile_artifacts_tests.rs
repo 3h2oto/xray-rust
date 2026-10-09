@@ -50,6 +50,7 @@ fn ffi_header_declares_lifecycle_error_and_tun_abi() {
         "xray_core_rebind_wireguard",
         "xray_core_rebind_hysteria",
         "xray_core_probe_outbound_url",
+        "xray_core_cancel_outbound_probes",
         "XrayOutboundProbeFailureKind",
         "xray_core_start",
         "xray_core_stop",
@@ -94,7 +95,7 @@ fn ffi_header_declares_lifecycle_error_and_tun_abi() {
     assert!(header.contains("XRAY_FFI_CAPABILITY_OUTBOUND_HEALTH = 1 << 13"));
     assert!(header.contains("XRAY_FFI_CAPABILITY_CONNECTION_MANAGEMENT = 1 << 14"));
     assert!(header.contains("XRAY_FFI_CAPABILITY_ROUTING_POLICY_UPDATE = 1 << 15"));
-    assert!(header.contains("XRAY_FFI_CAPABILITY_OUTBOUND_PROBE = 1 << 19"));
+    assert!(header.contains("XRAY_FFI_CAPABILITY_OUTBOUND_PROBE = 1 << 22"));
     // The Rust enum, the JNI result carrier and the Swift mapping all rely on
     // these discriminants staying stable within ABI major 1.
     for (name, value) in [
@@ -213,7 +214,7 @@ fn apple_adapter_declares_packet_tunnel_pump() {
     assert!(core.contains("public struct XrayOutboundProbeResult"));
     assert!(core.contains("public func probeOutboundURL("));
     assert!(core.contains("xray_core_probe_outbound_url("));
-    assert!(core.contains("guard version.minor >= 8 else"));
+    assert!(core.contains("guard version.minor >= 9 else"));
     assert!(core.contains("public func setOutboundSelectorOverride("));
     assert!(core.contains("public func clearOutboundSelectorOverride("));
     assert!(core.contains("public func replaceRoutingPolicy("));
@@ -473,7 +474,7 @@ fn android_adapter_declares_vpn_service_jni_and_socket_protection() {
     assert!(core.contains("OutboundHealth(1L shl 13)"));
     assert!(core.contains("ConnectionManagement(1L shl 14)"));
     assert!(core.contains("RoutingPolicyUpdate(1L shl 15)"));
-    assert!(core.contains("OutboundProbe(1L shl 19)"));
+    assert!(core.contains("OutboundProbe(1L shl 22)"));
     assert!(core.contains("fun probeOutboundUrl("));
     assert!(core.contains("requireCapability(XrayFfiCapability.OutboundProbe)"));
     assert!(core.contains("data class XrayOutboundProbeResult"));
@@ -1169,6 +1170,7 @@ const EXPORTED_SYMBOLS: &[&str] = &[
     "xray_core_rebind_wireguard",
     "xray_core_rebind_hysteria",
     "xray_core_probe_outbound_url",
+    "xray_core_cancel_outbound_probes",
     "xray_core_start",
     "xray_core_stop",
     "xray_core_free",
@@ -1311,6 +1313,7 @@ static void use_xray_ffi_api(void) {
     uint64_t probe_delay_ms = 0;
     int32_t probe_failure_kind = XRAY_OUTBOUND_PROBE_FAILURE_NONE;
     uint16_t probe_http_status = 0;
+    (void)xray_core_cancel_outbound_probes(handle, &error);
     (void)xray_core_probe_outbound_url(
         handle,
         "http://probe.test/health",

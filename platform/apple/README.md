@@ -69,7 +69,7 @@ profile you control without committing it to the repository.
 
 - `XrayMobileAdapter`: `XrayCore`, atomic routing-policy replacement and
   snapshots, packet batching/pump, stats/events, startup probe, blocking
-  on-demand outbound probe (ABI 1.8), and optional Darwin-utun fd discovery.
+  on-demand outbound probe (ABI 1.9), and optional Darwin-utun fd discovery.
 - `XrayAppleShared`: profile/config models, secure config storage, sanitized
   logging, and app-to-extension message keys.
 - `XrayAppleClient`: SwiftUI profile editor and `NETunnelProviderManager`

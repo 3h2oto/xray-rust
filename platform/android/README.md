@@ -55,7 +55,7 @@ artifact directory.
 - `XrayCore`: lifecycle, config warnings, atomic routing-policy replacement and
   snapshots, packet push/batched poll, stats, selection/health snapshots,
   connection inventory/accounting/close, seven typed TUN diagnostic queues,
-  startup probe, blocking on-demand outbound probe (ABI 1.8), runtime profiles,
+  startup probe, blocking on-demand outbound probe (ABI 1.9), runtime profiles,
   DNS bootstrap policy, and socket protection.
 - `XrayVlessUrlImporter`: fail-closed VLESS share-link conversion into a
   self-contained mobile TUN profile.
