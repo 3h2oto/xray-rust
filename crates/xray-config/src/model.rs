@@ -545,6 +545,7 @@ pub enum OutboundProtocol {
     Vless,
     Hysteria,
     Wireguard,
+    Blackhole,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -554,6 +555,7 @@ pub enum OutboundSettings {
     Vless(VlessOutboundSettings),
     Hysteria(HysteriaOutboundSettings),
     Wireguard(WireguardOutboundSettings),
+    Blackhole(BlackholeOutboundSettings),
 }
 
 impl OutboundSettings {
@@ -564,8 +566,25 @@ impl OutboundSettings {
             Self::Vless(_) => OutboundProtocol::Vless,
             Self::Hysteria(_) => OutboundProtocol::Hysteria,
             Self::Wireguard(_) => OutboundProtocol::Wireguard,
+            Self::Blackhole(_) => OutboundProtocol::Blackhole,
         }
     }
+}
+
+/// Xray `blackhole` outbound settings. The handler never dials: TCP sessions
+/// receive the optional response and are closed, and UDP datagrams are dropped.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BlackholeOutboundSettings {
+    pub response: BlackholeResponse,
+}
+
+/// Xray `settings.response.type`. Matching Xray, `none` is the default when
+/// `response` is absent; `http` writes Xray's fixed HTTP 403 reply first.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum BlackholeResponse {
+    #[default]
+    None,
+    Http,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

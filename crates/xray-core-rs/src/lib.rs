@@ -234,6 +234,11 @@ pub enum CoreError {
     NoSupportedInbound,
     #[error("no supported outbound found")]
     NoSupportedOutbound,
+    /// A path that needs a dialable transport (an internal DNS client, a
+    /// probe or a TUN DNS upstream) was routed to a `blackhole` outbound.
+    /// Session inbounds handle blackhole selection themselves and never dial.
+    #[error("traffic was routed to a blackhole outbound")]
+    BlackholeOutbound,
     #[error("outbound selector group {0:?} was not found")]
     OutboundSelectorGroupNotFound(String),
     #[error("outbound {outbound:?} is not a candidate of selector group {group:?}")]
