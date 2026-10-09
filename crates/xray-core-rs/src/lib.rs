@@ -68,7 +68,10 @@ pub use outbound::{
     UdpOutbound, VlessTcpOutbound, VlessUdpFraming,
 };
 pub use runtime_log::{RuntimeLogConfig, RuntimeLogger};
-pub use startup_probe::{StartupProbeError, StartupProbeOptions};
+pub use startup_probe::{
+    OutboundProbeError, OutboundProbeOutcome, StartupProbeError, StartupProbeOptions,
+    MAX_OUTBOUND_PROBE_TIMEOUT,
+};
 pub use tun_fd::{TunFdClosePolicy, TunFdConfig, TunFdPacketFormat, TunFdRuntime};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -218,6 +221,23 @@ pub struct BoundInbound {
 struct RuntimeState {
     inbounds: Vec<BoundInbound>,
     tasks: Vec<JoinHandle<()>>,
+    probe_dns: ProbeDnsResolvers,
+}
+
+/// Runtime DNS resolvers shared by the startup probe, the observatory, and
+/// host-requested outbound probes while the core runs.
+#[derive(Clone)]
+struct ProbeDnsResolvers {
+    destination: Arc<dyn DnsResolver>,
+    bootstrap: Arc<dyn DnsResolver>,
+}
+
+impl std::fmt::Debug for ProbeDnsResolvers {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ProbeDnsResolvers")
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug, Error)]
@@ -739,6 +759,77 @@ impl Core {
         self.outbound_factory().rebind_wireguard()
     }
 
+    /// Runs one host-requested HTTP(S) probe through a leaf outbound.
+    ///
+    /// `options.outbound_tag` names a configured leaf outbound; `None` uses the
+    /// default outbound. Routing rules, balancers, and selector overrides are
+    /// bypassed, as for the startup probe and observatory, whose bounded dial
+    /// path and runtime DNS resolvers this reuses. The whole probe is bounded
+    /// by `options.timeout`, which must be positive and at most
+    /// [`MAX_OUTBOUND_PROBE_TIMEOUT`]. Only a running core accepts probes.
+    ///
+    /// Rejected arguments return [`OutboundProbeError`] without network
+    /// activity. A probe that ran returns its typed outcome; it does not update
+    /// outbound health, selector state, or connection accounting.
+    pub async fn probe_outbound_url(
+        &self,
+        options: StartupProbeOptions,
+    ) -> Result<OutboundProbeOutcome, OutboundProbeError> {
+        let dns = match (self.state, self.runtime.as_ref()) {
+            (CoreState::Running, Some(runtime)) => runtime.probe_dns.clone(),
+            _ => return Err(OutboundProbeError::NotRunning),
+        };
+        startup_probe::validate_outbound_probe(&options, self.outbound_graph())?;
+
+        let probe_url = startup_probe::diagnostic_probe_url(&options.url);
+        let timeout_ms = options.timeout.as_millis();
+        let outbound = if options.outbound_tag.is_some() {
+            "<configured>"
+        } else {
+            "default"
+        };
+        self.runtime_logger.debug(|| {
+            format!(
+                "Debug outboundProbe start url={probe_url} timeoutMs={timeout_ms} outbound={outbound}"
+            )
+        });
+        let result = startup_probe::run_outbound_url_probe(
+            self.outbound_router.as_ref(),
+            options,
+            dns.destination.as_ref(),
+            dns.bootstrap.as_ref(),
+            self.transport_dialer.as_ref(),
+            "xray-rust-outbound-probe",
+        )
+        .await;
+        let outcome = match result {
+            Ok(delay) => {
+                self.runtime_logger.debug(|| {
+                    format!(
+                        "Debug outboundProbe success url={probe_url} delayMs={}",
+                        delay.as_millis()
+                    )
+                });
+                OutboundProbeOutcome::Reachable { delay }
+            }
+            Err(error) => {
+                let failure = error.health_failure();
+                self.runtime_logger.debug(|| {
+                    let status = match failure {
+                        OutboundHealthFailure::HttpStatus(status) => format!(" status={status}"),
+                        _ => String::new(),
+                    };
+                    format!(
+                        "Debug outboundProbe fail url={probe_url} kind={}{status} error=<redacted>",
+                        startup_probe::health_failure_label(failure)
+                    )
+                });
+                OutboundProbeOutcome::Failed(failure)
+            }
+        };
+        Ok(outcome)
+    }
+
     fn runtime_dns_resolvers(
         &self,
         config: &Arc<CoreConfig>,
@@ -972,7 +1063,14 @@ impl Core {
             }
         }
 
-        self.runtime = Some(RuntimeState { inbounds, tasks });
+        self.runtime = Some(RuntimeState {
+            inbounds,
+            tasks,
+            probe_dns: ProbeDnsResolvers {
+                destination: Arc::clone(&runtime_dns_resolvers.destination),
+                bootstrap: Arc::clone(&runtime_dns_resolvers.bootstrap),
+            },
+        });
         self.state = CoreState::Running;
 
         if let Some(options) = self.startup_probe.clone() {
