@@ -146,6 +146,9 @@ public struct XrayFFICapabilities: OptionSet, Equatable, Sendable {
     public static let routingPolicyUpdate = Self(
         rawValue: UInt64(XRAY_FFI_CAPABILITY_ROUTING_POLICY_UPDATE.rawValue)
     )
+    public static let outboundProbe = Self(
+        rawValue: UInt64(XRAY_FFI_CAPABILITY_OUTBOUND_PROBE.rawValue)
+    )
 }
 
 public struct XrayFFIInfo: Equatable, Sendable {
@@ -248,6 +251,50 @@ public enum XrayOutboundHealthFailureKind: String, Codable, Equatable, Sendable 
     case io
     case malformedHttpResponse
     case httpStatus
+}
+
+/// Typed result of `XrayCore.probeOutboundURL(_:timeoutMs:outboundTag:)`.
+/// Exactly one of `delayMs` and `failureKind` is non-nil; `httpStatus` is set
+/// only for `.httpStatus`.
+public struct XrayOutboundProbeResult: Equatable, Sendable {
+    public let delayMs: UInt64?
+    public let failureKind: XrayOutboundHealthFailureKind?
+    public let httpStatus: UInt16?
+
+    public var isReachable: Bool {
+        failureKind == nil
+    }
+
+    init(ffiDelayMs delayMs: UInt64, failureKind rawFailureKind: Int32, httpStatus: UInt16) throws {
+        // The C ABI carries the enum through int32_t; compare raw discriminants
+        // as the TCP slow-flow projection does.
+        let ffiKind = XrayOutboundProbeFailureKind.RawValue(truncatingIfNeeded: rawFailureKind)
+        let failureKind: XrayOutboundHealthFailureKind?
+        switch ffiKind {
+        case XRAY_OUTBOUND_PROBE_FAILURE_NONE.rawValue:
+            failureKind = nil
+        case XRAY_OUTBOUND_PROBE_FAILURE_TIMEOUT.rawValue:
+            failureKind = .timeout
+        case XRAY_OUTBOUND_PROBE_FAILURE_TRANSPORT.rawValue:
+            failureKind = .transport
+        case XRAY_OUTBOUND_PROBE_FAILURE_TLS.rawValue:
+            failureKind = .tls
+        case XRAY_OUTBOUND_PROBE_FAILURE_IO.rawValue:
+            failureKind = .io
+        case XRAY_OUTBOUND_PROBE_FAILURE_MALFORMED_HTTP_RESPONSE.rawValue:
+            failureKind = .malformedHttpResponse
+        case XRAY_OUTBOUND_PROBE_FAILURE_HTTP_STATUS.rawValue:
+            failureKind = .httpStatus
+        default:
+            throw XrayCoreError.status(
+                code: XRAY_STATUS_RUNTIME_ERROR,
+                message: "unknown outbound probe failure kind: \(rawFailureKind)"
+            )
+        }
+        self.delayMs = failureKind == nil ? delayMs : nil
+        self.failureKind = failureKind
+        self.httpStatus = failureKind == .httpStatus ? httpStatus : nil
+    }
 }
 
 public struct XrayOutboundHealthSnapshot: Codable, Equatable, Sendable {
@@ -1189,6 +1236,68 @@ public final class XrayCore: @unchecked Sendable {
             var accepted: UInt64 = 0
             try check(xray_core_rebind_hysteria(handle, &accepted, &error), error: error)
             return accepted
+        }
+    }
+
+    /// Sends one HTTP(S) GET through a leaf outbound of the running core and
+    /// returns its latency or typed failure. A `nil` or empty `outboundTag`
+    /// uses the default outbound; routing rules and selector overrides are
+    /// bypassed, and health snapshots are not updated. Blocks the caller for at
+    /// most `timeoutMs` (1...60_000), so call it off the main thread; lifecycle
+    /// calls wait for an in-flight probe. Requires ABI 1.8.
+    public func probeOutboundURL(
+        _ url: String,
+        timeoutMs: UInt64 = 5_000,
+        outboundTag: String? = nil
+    ) throws -> XrayOutboundProbeResult {
+        let version = Self.ffiInfo.version
+        guard version.minor >= 8 else {
+            throw XrayCoreError.incompatibleFFIMinorVersion(required: 8, actual: version.minor)
+        }
+        try requireCapability(.outboundProbe)
+        return try withDataPathHandle { handle in
+            var error: OpaquePointer?
+            var delayMs: UInt64 = 0
+            var failureKind: Int32 = 0
+            var httpStatus: UInt16 = 0
+            try url.withCString { urlPointer in
+                if let outboundTag, !outboundTag.isEmpty {
+                    try outboundTag.withCString { outboundTagPointer in
+                        try check(
+                            xray_core_probe_outbound_url(
+                                handle,
+                                urlPointer,
+                                timeoutMs,
+                                outboundTagPointer,
+                                &delayMs,
+                                &failureKind,
+                                &httpStatus,
+                                &error
+                            ),
+                            error: error
+                        )
+                    }
+                } else {
+                    try check(
+                        xray_core_probe_outbound_url(
+                            handle,
+                            urlPointer,
+                            timeoutMs,
+                            nil,
+                            &delayMs,
+                            &failureKind,
+                            &httpStatus,
+                            &error
+                        ),
+                        error: error
+                    )
+                }
+            }
+            return try XrayOutboundProbeResult(
+                ffiDelayMs: delayMs,
+                failureKind: failureKind,
+                httpStatus: httpStatus
+            )
         }
     }
 

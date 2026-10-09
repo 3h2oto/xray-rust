@@ -10,6 +10,14 @@ long-term supported release series.
 
 ## Unreleased
 
+- Added a capability-gated on-demand outbound probe in C ABI 1.8 and the
+  Swift/Kotlin adapters. A host heartbeat can send one bounded HTTP(S) probe
+  through a leaf outbound of a running core, selected by tag or the default
+  outbound, and receive its delay or a typed failure matching the health
+  snapshot categories. Invalid URLs, timeouts outside 1 to 60000 ms, and
+  unknown tags are rejected before any network activity; results do not change
+  health snapshots or selector state, and diagnostics stay redacted.
+
 ## 0.7.0 - 2026-09-27
 
 Stable source release. Canonical SDK packages and their publication status are

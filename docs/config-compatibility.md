@@ -1045,6 +1045,14 @@ unhealthy state, delay, last-try and last-success timestamps, consecutive
 failure count, and a typed redacted failure category; raw URLs and transport
 error strings are not retained.
 
+Hosts that schedule their own checks, such as a mobile tunnel heartbeat, can
+request one probe at a time through C ABI 1.8 and the Swift/Kotlin adapters
+without an `observatory` object. It accepts the same URLs as the startup probe,
+dials one leaf by tag or the default outbound with routing bypassed, takes a
+host timeout of 1 to 60000 ms, and returns the delay or the same typed failure
+category. Its result is not written to health snapshots and does not
+influence selector groups.
+
 Domain matchers:
 
 - bare string or `keyword:value`;
