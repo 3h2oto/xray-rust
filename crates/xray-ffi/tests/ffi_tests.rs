@@ -3809,6 +3809,12 @@ fn spawn_startup_probe_server_once() -> StartupProbeServer {
         loop {
             match listener.accept() {
                 Ok((mut stream, _)) => {
+                    // Accepted sockets can inherit O_NONBLOCK on macOS. A
+                    // read timeout alone does not switch them to blocking I/O.
+                    if let Err(err) = stream.set_nonblocking(false) {
+                        let _ = tx.send(Err(format!("failed to set probe blocking mode: {err}")));
+                        return;
+                    }
                     if let Err(err) = stream.set_read_timeout(Some(Duration::from_secs(2))) {
                         let _ = tx.send(Err(format!("failed to set probe read timeout: {err}")));
                         return;
