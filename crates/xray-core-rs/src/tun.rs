@@ -1,3 +1,4 @@
+mod blackhole;
 mod datagram;
 
 use std::collections::{HashMap, VecDeque};
@@ -39,8 +40,9 @@ use crate::dns_outbound_runtime::{FakeIpTargetProvenance, RestoredClientTarget};
 use crate::fake_dns::FakeIpMapper;
 use crate::outbound::{
     open_tcp_stream_with_resolvers_and_dialer,
-    open_vless_udp_stream_with_resolver_dialer_and_options, DnsOutbound, TcpOutbound, UdpOutbound,
-    UdpSessionOutbound, VlessTcpOutbound, VlessUdpFraming, VlessUdpOpenOptions,
+    open_vless_udp_stream_with_resolver_dialer_and_options, DnsOutbound, TcpOutbound,
+    TcpSessionOutbound, UdpOutbound, UdpSessionOutbound, VlessTcpOutbound, VlessUdpFraming,
+    VlessUdpOpenOptions,
 };
 use crate::policy::{effective_policy_for_level, EffectivePolicy};
 use crate::{OutboundRouter, RuntimeLogger, TunRuntimeOptions, TunRuntimeProfile};
@@ -3014,7 +3016,7 @@ async fn bridge_tcp_flow_inner(
             .as_ref()
             .is_some_and(dns_proxy::DnsProxyUpstream::is_local)
         {
-            Ok((TcpOutbound::Freedom, None))
+            Ok((TcpSessionOutbound::Transport(TcpOutbound::Freedom), None))
         } else {
             tokio::select! {
                 biased;
@@ -3029,15 +3031,19 @@ async fn bridge_tcp_flow_inner(
                                     &dial_target,
                                     true,
                                 )
+                                .map(|selection| {
+                                    (TcpSessionOutbound::Transport(selection.outbound), selection.tag)
+                                })
                         } else {
                             context.outbound_router
-                                .select_tcp_outbound_for_session_with_tag_and_resolver(
+                                .select_tcp_session_outbound_with_tag_and_resolver(
                                     routing_inbound_tag,
                                     &dial_target,
                                     true,
                                     context.dns_resolver.as_ref(),
                                 )
                                 .await
+                                .map(|selection| (selection.outbound, selection.tag))
                         }
                     };
                     if let Some(remaining) = selection_remaining {
@@ -3048,11 +3054,36 @@ async fn bridge_tcp_flow_inner(
                     } else {
                         select.await.map_err(|error| error.to_string())
                     }
-                } => result.map(|selection| (selection.outbound, selection.tag)),
+                } => result,
             }
         };
         let (outbound, outbound_tag) = match outbound_result {
-            Ok(selection) => selection,
+            Ok((TcpSessionOutbound::Transport(outbound), tag)) => (outbound, tag),
+            Ok((TcpSessionOutbound::Blackhole(blackhole), outbound_tag)) => {
+                drop(pending_open);
+                blackhole::finish_blackholed_tcp_flow(
+                    blackhole::BlackholedTcpFlow {
+                        handle,
+                        generation,
+                        blackhole,
+                        outbound_tag,
+                        client_target: &client_target,
+                        routing_inbound_tag,
+                        client_already_opened,
+                    },
+                    &context,
+                    from_stack,
+                    shutdown,
+                    close_guard,
+                )
+                .await;
+                return;
+            }
+            // A DNS handler is not a byte-stream transport for this flow.
+            Ok((TcpSessionOutbound::Dns(_), _)) => {
+                last_failure = Some((crate::CoreError::NoSupportedOutbound.to_string(), None));
+                continue;
+            }
             Err(error) => {
                 last_failure = Some((error, None));
                 continue;
@@ -4189,6 +4220,7 @@ async fn bridge_udp_flow(
                         crate::debug_log::udp_outbound_label(outbound)
                     }
                     UdpSessionOutbound::Dns(_) => "dns",
+                    UdpSessionOutbound::Blackhole(_) => "blackhole",
                 });
         crate::debug_log::log_route_decision(
             &context.runtime_logger,
@@ -4233,6 +4265,22 @@ async fn bridge_udp_flow(
                 dns_permit,
                 connection,
                 connection_close,
+            )
+            .await;
+            return;
+        }
+        UdpSessionOutbound::Blackhole(blackhole) => {
+            if context.runtime_logger.is_enabled() {
+                crate::debug_log::log_access_accepted(
+                    &context.runtime_logger,
+                    "tun",
+                    &dial_target,
+                    "blackhole",
+                );
+            }
+            drop(first_payload);
+            blackhole::absorb_blackholed_udp_flow(
+                key, generation, blackhole, &context, from_stack, shutdown, connection,
             )
             .await;
             return;

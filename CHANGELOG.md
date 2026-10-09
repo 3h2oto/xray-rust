@@ -10,6 +10,13 @@ long-term supported release series.
 
 ## Unreleased
 
+- Add an Xray-compatible `blackhole` outbound so profiles that route ads, QUIC
+  or other denied traffic to `block` load and keep blocking it. `none` closes
+  TCP after the inbound acknowledgement and `http` first sends Xray's fixed
+  403 reply. A UDP flow is dispatched once, gets the `http` reply once, and
+  then discards its datagrams until it is idle. Nothing is dialed and no
+  socket is opened. Unknown response types and blackhole proxy chains fail
+  closed.
 - Close TUN TCP flows whose remote closes before the client's handshake ACK
   without waiting for another client segment.
 
