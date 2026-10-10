@@ -360,6 +360,7 @@ expected_rust="$(cat <<'EXPECTED'
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Check repository scripts
         run: |
