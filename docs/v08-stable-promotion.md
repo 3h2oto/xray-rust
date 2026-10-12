@@ -6,8 +6,7 @@ The latest measured candidate is core
 `12fdfa14136e57024d46ace66c84bdbf3dc1d7c7`. PR #42 is merged with the same
 runtime tree; CI-only PR #55 and post-merge main CI are green. The
 [2026-10-12 report](device-results/2026-10-12-v08-candidate/README.md) preserves
-fresh device/host results, original failures and remaining work. It is not a
-passing release manifest; publication and canonical artifacts are still pending.
+fresh device/host results, original failures and remaining work. The exact-candidate schema-4 archive passed [GitHub validation](https://github.com/aimalygin/xray-rust/actions/runs/38288094780). The immutable core tag `v0.8.0` points to that candidate; publication and canonical artifacts are still pending.
 
 On 2026-10-11 the owner requested release and updates to issues #47/#51–53,
 while explicitly deferring the reproduced iPhone Hysteria startup failure
@@ -42,3 +41,21 @@ on the same phone has 1 among 960, using different SOCKS ingress and scheduling.
 These failed verdicts remain failed. The cause is not established, and the
 decision is not a client fix, Wi-Fi attribution, or universal no-regression claim.
 Other evidence and canonical distribution requirements are unchanged.
+
+## Immutable tag history verification
+
+The initial `v0.8.0` tag CI secret job scans all fetched branches. Adding the
+separate evidence branch introduced fourteen false positives for public file
+SHA-256 fields, even though those files are absent from the tag ancestry.
+The tagged scanner configuration passes the entire tag ancestry unchanged.
+PR #57 adds exact value/path/rule exceptions for the evidence branch, with
+positive leak controls; it does not rewrite the published tag or measured ZIP.
+
+`Verify source tag` separately scans the complete release ancestry with the
+original tagged configuration and all current branches with the tested current
+policy. It verifies that every other required job of the exact tag's push CI
+passed, rejecting missing, skipped, cancelled or unrelated results. Its artifact
+records the original secret-job failure and both replacement scans. It never
+waives a runtime test or device limitation. Publication waits for this GitHub
+verification and the remaining source jobs; canonical SDK artifacts and clean
+consumer checks remain separate.

@@ -1,6 +1,6 @@
 # 0.8.0 exact-candidate device and host measurements — 2026-10-12
 
-This is a measured evidence inventory with a [locally validated schema-4 archive](../../releases/v0.8.0-device-evidence.json). GitHub workflow validation and publication are pending. Apple cellular transitions passed for Trojan/VMess and conditionally for SS2022; its default-policy failure is retained. Canonical distribution artifacts, verified immutable tags, source locks and clean package-consumer checks are still required. Failed measurements stay failed under the scoped [owner decisions](../../releases/v0.8.0-owner-decisions.json).
+This is a measured evidence inventory with a [locally validated schema-4 archive](../../releases/v0.8.0-device-evidence.json). [GitHub evidence validation](https://github.com/aimalygin/xray-rust/actions/runs/38288094780) passed for the exact candidate. Publication is pending. Apple cellular transitions passed for Trojan/VMess and conditionally for SS2022; its default-policy failure is retained. Canonical distribution artifacts, verified immutable tags, source locks and clean package-consumer checks are still required. Failed measurements stay failed under the scoped [owner decisions](../../releases/v0.8.0-owner-decisions.json).
 
 ## Identity and scope
 
@@ -82,4 +82,4 @@ Predeclared protocol bounds: throughput at least 50% of the paired Xray sample, 
 
 The original wrong 1 MiB resource-fixture cap, missing FakeIP assertion, Android USB disconnection, diagnostic Activity routing failure and provider launch-hook failure are retained as fixture/control failures. Corrected runs carry separate paths and identities. The independent Android Xray startup configuration failure generated no traffic and is separate from its measured UDP loss. Historical Hysteria, SS2022 WAN/MTU and VMess performance findings keep their original source identities and scoped decisions. Neither a successful retry nor this report claims those causes are fixed.
 
-No release tag or schema-4 pass is created by this inventory. The explicit RSS series and local schema-4 validation passed. GitHub evidence validation and canonical distribution remain outstanding.
+The explicit RSS series and local/GitHub schema-4 validation passed. The immutable core tag `v0.8.0` points to the measured candidate. Canonical distribution and package-consumer checks remain outstanding.

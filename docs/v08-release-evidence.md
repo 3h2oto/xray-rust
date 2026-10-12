@@ -8,7 +8,7 @@ All 32 Android functional combinations and three Apple LAN lock/wake cases
 passed. Apple cellular transitions pass for Trojan/VMess and conditionally for SS2022 with the documented server PMTU workaround; its default-policy baseline remains failed. Signed
 provider traffic passed 21/22 cases; the initial Hysteria timeout remains within
 the recorded owner deferral. Issue #56 stays open under the separate explicit
-release decision. The schema-4 archive now passes the unchanged exact-candidate validator locally; GitHub validation and publication remain pending. Canonical distribution and unrelated gates remain required.
+release decision. The schema-4 archive passes the unchanged exact-candidate validator locally and in [GitHub run 38288094780](https://github.com/aimalygin/xray-rust/actions/runs/38288094780); publication remains pending. Canonical distribution and unrelated gates remain required.
 
 The following historical inventory retains earlier build identities and the
 requirements used to collect the latest report; old missing-work entries must
