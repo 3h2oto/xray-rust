@@ -48,7 +48,9 @@ impl Default for HysteriaLimits {
         Self {
             max_tcp_streams: 64,
             max_udp_sessions: 32,
-            udp_queue_packets: 4,
+            // Absorb short QUIC receive bursts while a ready relay is scheduled.
+            // Payload storage remains capped by the shared byte budget below.
+            udp_queue_packets: 16,
             udp_queue_bytes: 1024 * 1024,
             udp_payload_bytes: 65535,
             fragment_timeout: Duration::from_secs(5),

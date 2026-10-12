@@ -167,7 +167,7 @@ not implemented. Defaults use fixed 2 MiB stream/3 MiB connection windows and a
 transport-parameter or congestion-algorithm parity. Endpoint bootstrap DNS and
 automatic reconnection are provided by the third increment below.
 
-Default budgets per connection: 64 TCP streams, 32 UDP sessions, four queued
+Default budgets per connection: 64 TCP streams, 32 UDP sessions, sixteen queued
 packets per UDP session, a shared 1 MiB queued-payload budget, at most one 65,535-byte
 partial reassembly per session, five-second fragment expiry, and 256 KiB each for
 QUIC receive/send datagrams. Config validation caps these respectively at 256,
