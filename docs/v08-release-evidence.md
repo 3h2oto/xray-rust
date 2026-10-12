@@ -1,5 +1,11 @@
 # v0.8 evidence assembly
 
+Current release preparation (2026-10-11): the owner requested stable 0.8.0 and
+explicitly deferred the iPhone Hysteria startup-failure investigation and
+calibrated 5% confirmation. See [the promotion record](v08-stable-promotion.md).
+The historical findings below remain evidence with their original identities;
+unrelated gates and canonical artifact checks are unchanged.
+
 This is the collection/assembly inventory. The Android readiness-wait fix
 advances the development SDK source pin to
 `0d788564d85505ba0e2778320a561bc3d6500346`, tree

@@ -1,5 +1,11 @@
 # v0.8 release readiness
 
+Current release preparation (2026-10-11): the owner requested stable 0.8.0 and
+explicitly deferred the iPhone Hysteria startup-failure investigation and
+calibrated 5% confirmation. See [the promotion record](v08-stable-promotion.md).
+The historical findings below remain evidence with their original identities;
+unrelated gates and canonical artifact checks are unchanged.
+
 Reviewed on 2026-10-04. Development implementation is ready for candidate
 acceptance; **release acceptance is not complete**. Required scope is Trojan,
 Shadowsocks 2022 (all three methods) and VMess AEAD in the core and both SDKs.
