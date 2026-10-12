@@ -20,6 +20,7 @@ use xray_transport::{DnsResolver, TransportDialer, TransportError};
 
 fn freedom(tag: &str) -> OutboundConfig {
     OutboundConfig {
+        mux: None,
         tag: Some(tag.to_owned()),
         proxy_settings: None,
         stream: StreamSettings {
@@ -27,6 +28,8 @@ fn freedom(tag: &str) -> OutboundConfig {
             transport: StreamTransport::Raw,
             security: StreamSecurity::None,
             quic_params: None,
+            tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         },
         settings: OutboundSettings::Freedom,

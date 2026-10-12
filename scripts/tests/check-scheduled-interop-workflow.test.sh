@@ -378,7 +378,9 @@ expected_rust="$(cat <<'EXPECTED'
           bash scripts/tests/check-v05-performance.test.sh
           bash scripts/tests/check-v05-host-hardening.test.sh
           bash scripts/tests/check-mobile-device-evidence.test.sh
-          python3 -m unittest scripts.tests.test_v06_release_evidence scripts.tests.test_v06_stable_promotion scripts.tests.test_v07_release_evidence scripts.tests.test_v07_stable_promotion
+          python3 -m unittest scripts.tests.test_v06_release_evidence scripts.tests.test_v06_stable_promotion scripts.tests.test_v07_release_evidence scripts.tests.test_v07_stable_promotion scripts.tests.test_v08_release_evidence
+          python3 -m unittest scripts.tests.test_v07_protocol_parity scripts.tests.test_v07_performance_processes scripts.tests.test_v08_protocol_comparison scripts.tests.test_v08_android_fixture
+          python3 scripts/tests/set-xray-ss2022-udp-pmtu.test.py
           bash scripts/tests/bench-xhttp-memory.test.sh
           if [[ -f docs/benchmarks/results/2026-08-29-v26.7.28/manifest.json ]]; then
             python3 scripts/check-benchmark-publication.py docs/benchmarks/results/2026-08-29-v26.7.28
@@ -393,6 +395,10 @@ expected_rust="$(cat <<'EXPECTED'
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings -W clippy::perf -W clippy::suspicious
       - name: Test
         run: cargo test --workspace --exclude xray-rust-fuzz --all-targets --locked
+      - name: Verify Linux transparent TCP and UDP interception
+        run: |
+          test_binary="$(cargo test --locked -p xray-core-rs --test tproxy_tests --no-run --message-format=json | python3 -c 'import json,sys; print(next(v["executable"] for v in map(json.loads,sys.stdin) if v.get("reason")=="compiler-artifact" and v.get("executable")))')"
+          sudo env XRAY_TPROXY_ISOLATED_NETWORK=1 XRAY_TPROXY_TEST_BINARY="$test_binary" unshare --net bash scripts/check-tproxy-linux.sh
       - name: Build public API documentation
         env:
           RUSTDOCFLAGS: -D warnings
