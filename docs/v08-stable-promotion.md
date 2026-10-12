@@ -1,5 +1,14 @@
 # v0.8.0 stable release preparation
 
+The latest measured candidate is core
+`fcce4be2771c1fb3f11e9503741d39a4d8df314e`, tree
+`820cbdc251861d02c93ed007015e5c6109baa3c0`, with SDK
+`12fdfa14136e57024d46ace66c84bdbf3dc1d7c7`. PR #42 is merged with the same
+runtime tree; CI-only PR #55 and post-merge main CI are green. The
+[2026-10-12 report](device-results/2026-10-12-v08-candidate/README.md) preserves
+fresh device/host results, original failures and remaining work. It is not a
+passing release manifest; publication and canonical artifacts are still pending.
+
 On 2026-10-11 the owner requested release and updates to issues #47/#51–53,
 while explicitly deferring the reproduced iPhone Hysteria startup failure
 and the unconfirmed calibrated 5% performance gate. The
@@ -23,4 +32,13 @@ SS2022 UDP, WireGuard and VMess performance limitations remain visible.
 Publication is requested but not yet complete. CI, remaining release-evidence
 requirements, core annotated tag verification, the canonical SDK artifact lock
 and consumer validation still apply. Do not replace a missing result with a
-pass or broaden the two scoped owner decisions to unrelated cases.
+pass or broaden the scoped owner decisions to unrelated cases.
+
+On 2026-10-12 the owner separately authorized publishing 0.8.0 with
+[issue #56](https://github.com/aimalygin/xray-rust/issues/56) open and its
+Android VMess UDP stress limitation documented. The exact Rust candidate has
+3 timeouts among 13,440 UDP attempts; an independent pinned Xray-core client
+on the same phone has 1 among 960, using different SOCKS ingress and scheduling.
+These failed verdicts remain failed. The cause is not established, and the
+decision is not a client fix, Wi-Fi attribution, or universal no-regression claim.
+Other evidence and canonical distribution requirements are unchanged.

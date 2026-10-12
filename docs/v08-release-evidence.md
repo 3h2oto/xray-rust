@@ -1,5 +1,19 @@
 # v0.8 evidence assembly
 
+Latest collection (2026-10-12): the [exact-candidate report](device-results/2026-10-12-v08-candidate/README.md)
+binds core `fcce4be2771c1fb3f11e9503741d39a4d8df314e` and SDK
+`12fdfa14136e57024d46ace66c84bdbf3dc1d7c7` to fresh physical-device results,
+13 performance measurements with five samples each, and preserved failures.
+All 32 Android functional combinations and three Apple LAN lock/wake cases
+passed. Apple cellular transitions pass for Trojan/VMess and conditionally for SS2022 with the documented server PMTU workaround; its default-policy baseline remains failed. Signed
+provider traffic passed 21/22 cases; the initial Hysteria timeout remains within
+the recorded owner deferral. Issue #56 stays open under the separate explicit
+release decision. The schema-4 archive now passes the unchanged exact-candidate validator locally; GitHub validation and publication remain pending. Canonical distribution and unrelated gates remain required.
+
+The following historical inventory retains earlier build identities and the
+requirements used to collect the latest report; old missing-work entries must
+not be read as fresh results for `fcce4be`.
+
 Current release preparation (2026-10-11): the owner requested stable 0.8.0 and
 explicitly deferred the iPhone Hysteria startup-failure investigation and
 calibrated 5% confirmation. See [the promotion record](v08-stable-promotion.md).
@@ -41,7 +55,7 @@ Optional/full core release jobs were skipped.
 These later source/diagnostic checks do not relabel measured native binaries.
 Full candidate CI remains recorded in [release readiness](v08-release-readiness.md).
 
-## Current inventory
+## Historical collection inventory
 
 | Area | Available evidence | Assembly/collection still needed |
 | --- | --- | --- |

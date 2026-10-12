@@ -20,6 +20,17 @@
       "measurementStatus": "not-confirmed",
       "regressionFreeClaim": false,
       "scope": "The outstanding calibrated 5% performance-regression confirmation discussed with the owner."
+    },
+    {
+      "id": "v08-android-vmess-udp-owner-deferral",
+      "recordedDate": "2026-10-12",
+      "ownerInstruction": "Выпускать с открытым #56 и описанным ограничением",
+      "issue": "https://github.com/aimalygin/xray-rust/issues/56",
+      "releaseRequirement": "waived-by-owner-for-0.8.0",
+      "rootCauseEstablished": false,
+      "productFixClaimed": false,
+      "measurementStatus": "preserve-original-failures",
+      "scope": "Publish 0.8.0 with issue #56 open: exact Android Rust candidate has 3 timeouts among 13440 UDP stress attempts; independent Xray-core Android SOCKS control has 1 among 960. Different ingress/workload scheduling is retained; no Wi-Fi causation or regression-free claim."
     }
   ],
   "unchangedRequirements": [
