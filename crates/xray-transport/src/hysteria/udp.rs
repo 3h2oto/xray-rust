@@ -114,9 +114,7 @@ impl Registry {
             return None;
         };
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-        let Some(sink) = entries.sessions.get_mut(&message.session_id) else {
-            return None;
-        };
+        let sink = entries.sessions.get_mut(&message.session_id)?;
         let Ok(Some(packet)) = sink.reassembly.feed(&message, now) else {
             return None;
         };
