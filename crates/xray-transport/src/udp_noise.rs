@@ -68,6 +68,7 @@ pub(crate) fn wrap(
     inner: Arc<dyn AsyncUdpSocket>,
     peer: SocketAddr,
     config: UdpNoiseConfig,
+    session: Option<Arc<UdpNoiseState>>,
 ) -> io::Result<Arc<dyn AsyncUdpSocket>> {
     config.validate()?;
     if config.items.is_empty() {
@@ -77,15 +78,17 @@ pub(crate) fn wrap(
         inner,
         peer,
         config,
-        done: AtomicBool::new(false),
-        state: Mutex::new(State {
-            index: 0,
-            packet: None,
-            delay_until: None,
-            expires: None,
-        }),
+        session: session.unwrap_or_default(),
     }))
 }
+/// Xray wraps the logical hopping connection once. Keep noise progress and its
+/// idle deadline across protected socket replacements, but not new QUIC sessions.
+#[derive(Default)]
+pub(crate) struct UdpNoiseState {
+    done: AtomicBool,
+    state: Mutex<State>,
+}
+#[derive(Default)]
 struct State {
     index: usize,
     packet: Option<Vec<u8>>,
@@ -96,8 +99,7 @@ struct NoiseSocket {
     inner: Arc<dyn AsyncUdpSocket>,
     peer: SocketAddr,
     config: UdpNoiseConfig,
-    done: AtomicBool,
-    state: Mutex<State>,
+    session: Arc<UdpNoiseState>,
 }
 impl fmt::Debug for NoiseSocket {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -121,10 +123,10 @@ impl AsyncUdpSocket for NoiseSocket {
                 "unexpected UDP noise peer",
             ));
         }
-        if self.done.load(Ordering::Acquire) {
+        if self.session.done.load(Ordering::Acquire) {
             return self.inner.try_send(transmit);
         }
-        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = self.session.state.lock().unwrap_or_else(|e| e.into_inner());
         if state.expires.is_some_and(|t| Instant::now() > t) {
             state.index = 0;
             state.expires = None;
@@ -172,7 +174,7 @@ impl AsyncUdpSocket for NoiseSocket {
         let result = self.inner.try_send(transmit);
         if result.is_ok() {
             if self.config.reset_secs.to == 0 {
-                self.done.store(true, Ordering::Release);
+                self.session.done.store(true, Ordering::Release);
             } else {
                 state.expires = Some(
                     Instant::now() + Duration::from_secs(self.config.reset_secs.sample().into()),
@@ -217,6 +219,7 @@ impl UdpPoller for NoisePoller {
         let this = self.get_mut();
         let until = this
             .socket
+            .session
             .state
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -297,6 +300,7 @@ mod tests {
                 quinn::TokioRuntime.wrap_udp_socket(raw).unwrap(),
                 peer,
                 config(),
+                None,
             )
             .unwrap();
             let started = Instant::now();
@@ -336,6 +340,7 @@ mod tests {
             quinn::TokioRuntime.wrap_udp_socket(raw).unwrap(),
             peer,
             config(),
+            None,
         )
         .unwrap();
         assert!(tokio::time::timeout(
@@ -399,6 +404,68 @@ mod state_tests {
         NoiseRange { from: n, to: n }
     }
     #[tokio::test(start_paused = true)]
+    async fn socket_replacement_preserves_reset_and_new_connection_restarts_noise() {
+        for reset in [0, 1] {
+            let recorder = || {
+                Arc::new(RecordingSocket {
+                    calls: AtomicUsize::new(2), // readiness is exercised separately
+                    ..Default::default()
+                })
+            };
+            let config = UdpNoiseConfig {
+                items: vec![UdpNoiseItem {
+                    packet: b"noise".to_vec(),
+                    random_length: range(0),
+                    random_bytes: range(0),
+                    delay_ms: range(0),
+                }],
+                reset_secs: range(reset),
+                before_salamander: false,
+            };
+            let session = Arc::new(UdpNoiseState::default());
+            let peer = "127.0.0.1:2".parse().unwrap();
+            let send = |socket: &Arc<dyn AsyncUdpSocket>, contents: &[u8]| {
+                socket
+                    .try_send(&udp::Transmit {
+                        destination: peer,
+                        contents,
+                        ecn: None,
+                        segment_size: None,
+                        src_ip: None,
+                    })
+                    .unwrap();
+            };
+            let first = recorder();
+            let socket = wrap(first.clone(), peer, config.clone(), Some(session.clone())).unwrap();
+            send(&socket, b"first");
+            assert_eq!(
+                *first.packets.lock().unwrap(),
+                [b"noise".as_slice(), b"first"]
+            );
+            drop(socket);
+            tokio::time::advance(Duration::from_millis(500)).await;
+            let next = recorder();
+            let socket = wrap(next.clone(), peer, config.clone(), Some(session)).unwrap();
+            send(&socket, b"rebound");
+            assert_eq!(*next.packets.lock().unwrap(), [b"rebound".as_slice()]);
+            tokio::time::advance(Duration::from_millis(1100)).await;
+            send(&socket, b"after idle");
+            let expected: &[&[u8]] = if reset == 0 {
+                &[b"rebound", b"after idle"]
+            } else {
+                &[b"rebound", b"noise", b"after idle"]
+            };
+            assert_eq!(*next.packets.lock().unwrap(), expected);
+            let fresh = recorder();
+            let socket = wrap(fresh.clone(), peer, config, None).unwrap();
+            send(&socket, b"new connection");
+            assert_eq!(
+                *fresh.packets.lock().unwrap(),
+                [b"noise".as_slice(), b"new connection"]
+            );
+        }
+    }
+    #[tokio::test(start_paused = true)]
     async fn readiness_retry_and_sliding_idle_reset_preserve_sequence() {
         let raw = Arc::new(RecordingSocket::default());
         let peer = "127.0.0.1:2".parse().unwrap();
@@ -415,7 +482,7 @@ mod state_tests {
             reset_secs: range(1),
             before_salamander: false,
         };
-        let socket = wrap(raw.clone(), peer, config).unwrap();
+        let socket = wrap(raw.clone(), peer, config, None).unwrap();
         let mut poller = socket.clone().create_io_poller();
         for (delay, payload) in [
             (0, b"one".as_slice()),

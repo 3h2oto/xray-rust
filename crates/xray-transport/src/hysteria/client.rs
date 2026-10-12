@@ -195,6 +195,7 @@ pub(super) struct Shared {
     rebind_driver: Mutex<Option<JoinHandle<()>>>,
     bind_addr: SocketAddr,
     carrier: super::HysteriaCarrierConfig,
+    noise_state: Option<Arc<crate::udp_noise::UdpNoiseState>>,
     protector: Option<Arc<dyn crate::SocketProtector>>,
     pub limits: HysteriaLimits,
     pub tcp_slots: Arc<Semaphore>,
@@ -300,8 +301,14 @@ impl Shared {
         // previous carrier until an authenticated packet arrives on the new one.
         let result = if self.carrier.enabled() {
             let wire_peer = self.carrier.next_peer(logical_peer);
-            let socket = super::carrier::wrap(socket, logical_peer, wire_peer, &self.carrier)
-                .map_err(|_| HysteriaError::Connect)?;
+            let socket = super::carrier::wrap(
+                socket,
+                logical_peer,
+                wire_peer,
+                &self.carrier,
+                self.noise_state.clone(),
+            )
+            .map_err(|_| HysteriaError::Connect)?;
             endpoint.rebind_abstract(socket)
         } else {
             #[cfg(target_os = "macos")]
@@ -384,6 +391,12 @@ impl HysteriaClient {
         let tls_config = tls
             .quic_client_config_for(&config.tls, b"h3")
             .map_err(|_| HysteriaError::TlsConfiguration)?;
+        let noise_state = config
+            .carrier
+            .noise
+            .as_ref()
+            .filter(|noise| !noise.items.is_empty())
+            .map(|_| Arc::new(crate::udp_noise::UdpNoiseState::default()));
         let (endpoint, connection, _) = connect_quic_transport_with_datagrams(
             H3ConnectConfig {
                 remote_addr: config.remote_addr,
@@ -399,6 +412,7 @@ impl HysteriaClient {
                 QUIC_DATAGRAM_FRAME_SIZE,
             )),
             Some(&config.carrier),
+            noise_state.clone(),
         )
         .await
         .map_err(|error| match error {
@@ -468,6 +482,7 @@ impl HysteriaClient {
             rebind_driver: Mutex::new(None),
             bind_addr,
             carrier: config.carrier.clone(),
+            noise_state,
             protector: tls.socket_protector_arc(),
             limits: config.limits,
             tcp_slots: Arc::new(Semaphore::new(config.limits.max_tcp_streams)),

@@ -14,6 +14,28 @@ async fn run_parsed_salamander_hop_profile(noise_before: Option<bool>) {
     use xray_transport::TransportDialer;
     timeout(Duration::from_secs(20), async {
         let server = ReferenceServer::start_with_carrier(true, true).await;
+        let noise_packets = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut hop_port = server.address.port();
+        let _wire_capture = if noise_before == Some(false) {
+            let proxy = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            hop_port = proxy.local_addr().unwrap().port();
+            let remote = server.address;
+            let observed = noise_packets.clone();
+            Some(Task(tokio::spawn(async move {
+                let mut client = None;
+                let mut buffer = vec![0; 65_536];
+                loop {
+                    let (n, source) = proxy.recv_from(&mut buffer).await.unwrap();
+                    if source == remote {
+                        if let Some(client) = client { proxy.send_to(&buffer[..n], client).await.unwrap(); }
+                    } else {
+                        client = Some(source);
+                        if &buffer[..n] == b"synthetic-noise" { observed.fetch_add(1, Ordering::SeqCst); }
+                        proxy.send_to(&buffer[..n], remote).await.unwrap();
+                    }
+                }
+            })))
+        } else { None };
         let (tcp_addr, _tcp) = tcp_echo().await;
         let (udp_addr, _udp) = udp_echo().await;
         let mut profile = profile(server.address);
@@ -21,7 +43,7 @@ async fn run_parsed_salamander_hop_profile(noise_before: Option<bool>) {
         profile["outbounds"][0]["settings"]["port"] = serde_json::json!(unused.local_addr().unwrap().port());
         profile["outbounds"][0]["streamSettings"]["finalmask"] = serde_json::json!({
             "udp":[{"type":"salamander","settings":{"password":support::server::SALAMANDER_PASSWORD}}],
-            "quicParams":{"udpHop":{"ports":server.address.port(),"interval":5}}
+            "quicParams":{"udpHop":{"ports":hop_port,"interval":5}}
         });
         if let Some(before) = noise_before {
             let noise = serde_json::json!({"type":"noise","settings":{"noise":[
@@ -61,6 +83,16 @@ async fn run_parsed_salamander_hop_profile(noise_before: Option<bool>) {
         }
         assert_eq!(resolver.0.load(Ordering::SeqCst), 1, "hopping preserves the session owner");
         assert_eq!(core.rebind_hysteria(), 1);
+        timeout(Duration::from_secs(2), async {
+            while protector.0.load(Ordering::SeqCst) < 3 {
+                tokio::task::yield_now().await;
+            }
+        }).await.unwrap();
+        echo(&mut tcp, b"same parsed core TCP after host rebind").await;
+        if noise_before == Some(false) {
+            assert_eq!(noise_packets.load(Ordering::SeqCst), 1,
+                "reset=0 noise belongs to the QUIC connection, not each hop/rebind socket");
+        }
         core.stop().await.unwrap();
         assert_eq!(core.rebind_hysteria(), 0);
     }).await.unwrap();

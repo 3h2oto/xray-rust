@@ -47,3 +47,26 @@ remain recorded in [the scoped owner decisions](releases/v0.8.0-owner-decisions.
 No older device result is relabeled as evidence for this new runtime candidate.
 Release CI, exact SDK pins, canonical package artifacts and unrelated release
 acceptance requirements still apply.
+
+## Noise lifetime correction
+
+The final source audit found that pinned Xray wraps its hopping connection in
+FinalMask once, whereas the initial implementation allocated fresh noise state
+for every replacement socket. That could repeat the configured delay on each
+hop or host rebind. The corrected Hysteria connection shares its noise progress
+and sliding idle deadline across socket replacements. Separate QUIC connections
+retain independent state; disabled noise allocates no state.
+
+A live wire-capture regression test counts the literal prelude through automatic
+hopping and host rebind while the existing TCP stream continues to exchange
+payloads. The same test fails against the initial `34df245` runtime (three
+preludes instead of one) and passes with the correction. A paused-clock unit test
+also covers positive idle reset across replacement and a fresh connection's
+new prelude. Both Salamander orders and all XHTTP H3 modes pass live pinned
+interoperability checks with the corrected code. The first implementation's
+CI and measurements retain their source identity; the SDK must pin the corrected
+commit before publication.
+
+The corrected candidate passes all 1,837 config/transport/core tests (88
+separately gated cases ignored), the five focused noise transport tests, all
+three live noise interop cases and strict workspace Clippy on macOS.

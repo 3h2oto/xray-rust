@@ -120,7 +120,9 @@ Each delay follows its noise packet, including the last packet before the
 first QUIC datagram. No wrapper is installed when absent. With `reset: 0`,
 later application datagrams pass unchanged; a positive range sets a sliding
 idle interval in seconds after each successful send, as in pinned Xray-core.
-A new protected carrier on hop/rebind has a fresh prelude. Noise before a
+Hop/rebind preserves the prelude progress and idle deadline of the logical
+QUIC connection, matching Xray's mask outside its hopping socket. A new QUIC
+connection starts a fresh prelude. Noise before a
 Salamander entry is obfuscated; noise after Salamander is raw. Neither changes
 the QUIC payload. All sends occur after host socket protection, timers are
 asynchronous, and cancellation drops the state without a background sender.

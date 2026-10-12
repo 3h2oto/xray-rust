@@ -474,7 +474,7 @@ pub(crate) async fn connect_quic_transport(
     config: H3ConnectConfig,
     expected_alpn: &'static [u8],
 ) -> Result<(Endpoint, quinn::Connection, H3Diagnostics), H3Error> {
-    connect_quic_transport_with_datagrams(config, expected_alpn, None, None).await
+    connect_quic_transport_with_datagrams(config, expected_alpn, None, None, None).await
 }
 
 /// Optional receive/send byte budgets and advertised frame-size cap for QUIC datagrams.
@@ -484,6 +484,7 @@ pub(crate) async fn connect_quic_transport_with_datagrams(
     expected_alpn: &'static [u8],
     datagram_buffers: Option<(usize, usize, u16)>,
     carrier: Option<&crate::hysteria::HysteriaCarrierConfig>,
+    noise_state: Option<Arc<crate::udp_noise::UdpNoiseState>>,
 ) -> Result<(Endpoint, quinn::Connection, H3Diagnostics), H3Error> {
     drop(crate::tls::parse_tls_server_name(&config.server_name)?);
     let diagnostics = config.quic.diagnostics()?;
@@ -521,8 +522,9 @@ pub(crate) async fn connect_quic_transport_with_datagrams(
     let carrier = carrier.or_else(|| noise_carrier.enabled().then_some(&noise_carrier));
     let endpoint = if let Some(carrier) = carrier.filter(|c| c.enabled()) {
         let wire_peer = carrier.next_peer(remote_addr);
-        let socket = crate::hysteria::carrier::wrap(socket, remote_addr, wire_peer, carrier)
-            .map_err(H3Error::UdpSocket)?;
+        let socket =
+            crate::hysteria::carrier::wrap(socket, remote_addr, wire_peer, carrier, noise_state)
+                .map_err(H3Error::UdpSocket)?;
         Endpoint::new_with_abstract_socket(
             endpoint_config,
             None,

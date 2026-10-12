@@ -108,6 +108,7 @@ pub(crate) fn wrap(
     logical_peer: SocketAddr,
     wire_peer: SocketAddr,
     config: &HysteriaCarrierConfig,
+    noise_state: Option<Arc<crate::udp_noise::UdpNoiseState>>,
 ) -> io::Result<Arc<dyn AsyncUdpSocket>> {
     // Socket protection has already happened, before connect or any send.
     #[cfg(target_os = "macos")]
@@ -115,7 +116,7 @@ pub(crate) fn wrap(
     #[cfg(not(target_os = "macos"))]
     let inner = quinn::TokioRuntime.wrap_udp_socket(socket)?;
     let inner = if let Some(noise) = config.noise.as_ref().filter(|n| !n.before_salamander) {
-        crate::udp_noise::wrap(inner, wire_peer, noise.clone())?
+        crate::udp_noise::wrap(inner, wire_peer, noise.clone(), noise_state.clone())?
     } else {
         inner
     };
@@ -131,7 +132,7 @@ pub(crate) fn wrap(
             .map(|_| Mutex::new(vec![0; 65_536].into_boxed_slice())),
     });
     if let Some(noise) = config.noise.as_ref().filter(|n| n.before_salamander) {
-        crate::udp_noise::wrap(wrapped, logical_peer, noise.clone())
+        crate::udp_noise::wrap(wrapped, logical_peer, noise.clone(), noise_state)
     } else {
         Ok(wrapped)
     }
@@ -327,7 +328,7 @@ mod tests {
                 }),
                 ..Default::default()
             };
-            let client = wrap(raw, addr, addr, &config).unwrap();
+            let client = wrap(raw, addr, addr, &config, None).unwrap();
             let mut poller = client.clone().create_io_poller();
             for contents in [b"first".as_slice(), b"later"] {
                 let transmit = udp::Transmit {
@@ -462,7 +463,7 @@ mod tests {
             salamander_password: Some(Arc::new(Zeroizing::new("synthetic-password".into()))),
             ..Default::default()
         };
-        let client = wrap(local, logical, wire_peer, &config).unwrap();
+        let client = wrap(local, logical, wire_peer, &config, None).unwrap();
         assert_eq!(client.max_transmit_segments(), 1);
         let input = vec![0xa5; 1472];
         let mut wire = vec![0; input.len() + SALT_LEN];
