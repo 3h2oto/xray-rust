@@ -708,3 +708,117 @@ paths = [
   '''^docs/benchmarks/results/2026\-10\-10\-pr42\-issues/measurements\.tar\.gz!perf\-stage4\-udp\-sequence\-ab/manifest\.json$''',
   '''^docs/benchmarks/results/2026\-10\-10\-pr42\-issues/measurements\.tar\.gz!perf\-stage4/manifest\.json$''',
 ]
+
+# Exact SHA-256 fields from the retained 2026-10-12 build manifests.
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 420e35d063e4"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^420e35d063e43005fd8a174894c7fdbf29197b56bcb6e802a04fb7743e52c884$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/diagnostic\-apk\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 3fc5f603d478"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^3fc5f603d478fad021ee7f8f95a05d0ea22618feac1a852cdffd2c6da75ab79b$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/diagnostic\-apk\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 420e35d063e4"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^420e35d063e43005fd8a174894c7fdbf29197b56bcb6e802a04fb7743e52c884$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/build\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 05edc946cd71"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^05edc946cd715c7064e0f92723b7ceb4e799508b8afabd77a6b4008cccc422e8$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/build\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 83a90caf01d1"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^83a90caf01d1d071368b6613113b2197387c8a051981ab1bb723c7eb26defff2$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/ios\-bundle\-hashes\-provider\-launch\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest a15475fe2fb5"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^a15475fe2fb5cda03c428ebd1725b2cb4fee4a7d68f8d9cce6c290689d536369$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/ios\-bundle\-hashes\-provider\-launch\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 375ab7e2f80b"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^375ab7e2f80b018f3c71705785910afb4cbcb840536a6851f33ecdbda63309ce$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/ios\-bundle\-hashes\-provider\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest c28374198107"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^c283741981079b678846719b4dea3356ce2295eca5155d05af7adf0714b76184$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/build/ios\-bundle\-hashes\-provider\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest c0a89df37bd2"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^c0a89df37bd223d38a6f8a56315d052fce6a7da7d888b7dd7eb035f326988a92$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/android\-xray\-control/build\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 82086886d77b"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^82086886d77be36e0dc45751189a3c3e3eda16d26d5837d9ebdde81b367d46ea$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/ios/provider\-source\-manifest\-final\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 849307677a32"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^849307677a32b216b53eaf6526968f11e24850f2ab1f574fd4d3f9b316ade143$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/ios/provider\-source\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest fc5f8c6faad0"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+regexes = ['''^\s*"keys":\s*"fc5f8c6faad0ca7c4027ae6dd10352b8c77f210efa9e5c3b14ba379bfd0a7c24",?\s*$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/performance\-features/build\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 3527aa261534"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^3527aa2615341e26d42268aadd9fee7138024376d1ea1f4353307aed978d538b$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/performance\-features/build\-manifest\.json$''']
+
+[[allowlists]]
+description = "Public 0.8.0 device evidence file digest 879751ac43a7"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^879751ac43a741e7826a9266cc1efb609907eb8ede3ea2cf9953bebdc887c5f7$''']
+paths = ['''^docs/device\-results/2026\-10\-12\-v08\-candidate/performance\-features/build\-manifest\.json$''']

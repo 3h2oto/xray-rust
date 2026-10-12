@@ -24,6 +24,40 @@ ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence i
 
 
 class EvidenceAllowlists(unittest.TestCase):
+    def test_v08_final_device_digest_exceptions_are_narrow(self):
+        base = "docs/device-results/2026-10-12-v08-candidate/"
+        paths = (
+            "build/diagnostic-apk-manifest.json", "build/build-manifest.json",
+            "build/ios-bundle-hashes-provider-launch.json",
+            "build/ios-bundle-hashes-provider.json",
+            "android-xray-control/build-manifest.json",
+            "ios/provider-source-manifest-final.json", "ios/provider-source-manifest.json",
+            "performance-features/build-manifest.json",
+        )
+        inventory = json.loads((ROOT / base / "inventory.json").read_text())
+        hashes = {entry["path"]: entry["publishedSHA256"] for entry in inventory["files"]}
+        reviewed = {}
+        for name in paths:
+            content = (ROOT / base / name).read_bytes()
+            self.assertEqual(hashlib.sha256(content).hexdigest(), hashes[name])
+            reviewed[base + name] = content.decode()
+        self.assertEqual(self.scan(reviewed), set())
+        other = "e79a0029cc782ff8166c708f8c911ef39de33563b71a30df2cd2ff1d63d799ab"
+        self.assertEqual(self.scan({path: json.dumps({"xray": other}) for path in reviewed}),
+                         {(path, "jfrog-identity-token") for path in reviewed})
+        synthetic = "ABcdeF01234" + "GHijk56789lMno"
+        self.assertEqual(self.scan({path: json.dumps({"api_key": synthetic}) for path in reviewed}),
+                         {(path, "generic-api-key") for path in reviewed})
+        # The same approved digest is still detected outside its reviewed file.
+        digest = json.loads(reviewed[base + paths[0]])["nativeLibraries"]["lib/arm64-v8a/libxray_mobile_jni.so"]
+        self.assertEqual(self.scan({"unreviewed.json": json.dumps({"xray": digest})}),
+                         {("unreviewed.json", "jfrog-identity-token")})
+
+        feature_path = base + paths[-1]
+        key_digest = json.loads(reviewed[feature_path])["binarySha256"]["keys"]
+        self.assertEqual(self.scan({feature_path: json.dumps({"api_key": key_digest})}),
+                         {(feature_path, "generic-api-key")})
+
     def test_pr42_issue_binary_digests_are_narrow(self):
         base = "docs/benchmarks/results/2026-10-10-pr42-issues/"
         archive_path = base + "measurements.tar.gz"
