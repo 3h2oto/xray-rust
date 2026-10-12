@@ -273,7 +273,7 @@ EXPECTED
 
 expected_scheduled_pinned="$(cat <<'EXPECTED'
   scheduled-pinned-interop:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -306,7 +306,7 @@ EXPECTED
 
 expected_main_smoke="$(cat <<'EXPECTED'
   xray-core-main-smoke:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     continue-on-error: true
@@ -332,10 +332,10 @@ expected_main_smoke="$(cat <<'EXPECTED'
           fi
           echo "revision=$revision" >>"$GITHUB_OUTPUT"
           printf 'Xray-core main revision: `%s`\n' "$revision" >>"$GITHUB_STEP_SUMMARY"
-      - name: Install pinned Go toolchain
+      - name: Install Go toolchain required by Xray-core main
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: "1.26.5"
+          go-version-file: Xray-core/go.mod
           cache-dependency-path: Xray-core/go.sum
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.96.0 --profile minimal
