@@ -430,7 +430,7 @@ jobs:
         run: bash scripts/check-rc-interop.sh
 
   scheduled-pinned-interop:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -465,7 +465,7 @@ jobs:
         run: bash scripts/check-scheduled-pinned-interop.sh
 
   xray-core-main-smoke:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     continue-on-error: true
@@ -494,10 +494,10 @@ jobs:
           echo "revision=$revision" >>"$GITHUB_OUTPUT"
           printf 'Xray-core main revision: `%s`\n' "$revision" >>"$GITHUB_STEP_SUMMARY"
 
-      - name: Install pinned Go toolchain
+      - name: Install Go toolchain required by Xray-core main
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.26.5"
+          go-version-file: Xray-core/go.mod
           cache-dependency-path: Xray-core/go.sum
 
       - name: Install pinned Rust toolchain
