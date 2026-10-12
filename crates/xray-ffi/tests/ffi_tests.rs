@@ -2693,7 +2693,7 @@ fn ffi_tun_poll_tcp_slow_flow_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpSlowFlowEvent::default();
-    let mut target = [0_i8; 256];
+    let mut target = [0 as std::ffi::c_char; 256];
     let mut written = 7usize;
 
     let status = unsafe {
@@ -2721,7 +2721,7 @@ fn ffi_tun_poll_udp_slow_flow_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayUdpSlowFlowEvent::default();
-    let mut target = [0_i8; 256];
+    let mut target = [0 as std::ffi::c_char; 256];
     let mut written = 7usize;
 
     let status = unsafe {
@@ -2749,7 +2749,7 @@ fn ffi_tun_poll_udp_response_gap_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayUdpResponseGapEvent::default();
-    let mut target = [0_i8; 256];
+    let mut target = [0 as std::ffi::c_char; 256];
     let mut written = 7usize;
 
     let status = unsafe {
@@ -2777,7 +2777,7 @@ fn ffi_tun_poll_udp_quic_blocked_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayUdpQuicBlockedEvent::default();
-    let mut target = [0_i8; 256];
+    let mut target = [0 as std::ffi::c_char; 256];
     let mut written = 7usize;
 
     let status = unsafe {
@@ -2805,8 +2805,8 @@ fn ffi_tun_poll_tcp_flow_summary_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpFlowSummaryEvent::default();
-    let mut target = [0_i8; 256];
-    let mut outbound = [0_i8; 64];
+    let mut target = [0 as std::ffi::c_char; 256];
+    let mut outbound = [0 as std::ffi::c_char; 64];
     let mut written = 7usize;
     let mut outbound_written = 9usize;
 
@@ -2839,9 +2839,9 @@ fn ffi_tun_poll_tcp_open_error_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpOpenErrorEvent::default();
-    let mut target = [0_i8; 256];
-    let mut outbound = [0_i8; 64];
-    let mut message = [0_i8; 512];
+    let mut target = [0 as std::ffi::c_char; 256];
+    let mut outbound = [0 as std::ffi::c_char; 64];
+    let mut message = [0 as std::ffi::c_char; 512];
     let mut written = 7usize;
     let mut outbound_written = 9usize;
     let mut message_written = 11usize;
@@ -2877,7 +2877,7 @@ fn ffi_tun_poll_tcp_open_error_event_reports_no_packet() {
 #[test]
 fn ffi_tun_poll_tcp_open_error_event_rejects_null_handle_before_other_arguments() {
     let mut err = std::ptr::null_mut();
-    let mut target = [0x7f_i8; 8];
+    let mut target = [0x7f as std::ffi::c_char; 8];
     let mut written = 7usize;
 
     // Every other argument is also invalid; the handle check must still win.
@@ -2908,9 +2908,9 @@ fn ffi_tun_poll_tcp_open_error_event_rejects_null_handle_before_other_arguments(
 fn ffi_tun_poll_tcp_open_error_event_rejects_null_event_pointer() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
-    let mut target = [0x7f_i8; 8];
-    let mut outbound = [0x7f_i8; 8];
-    let mut message = [0x7f_i8; 8];
+    let mut target = [0x7f as std::ffi::c_char; 8];
+    let mut outbound = [0x7f as std::ffi::c_char; 8];
+    let mut message = [0x7f as std::ffi::c_char; 8];
     let mut written = 7usize;
     let mut outbound_written = 9usize;
     let mut message_written = 11usize;
@@ -2953,9 +2953,9 @@ fn ffi_tun_poll_tcp_open_error_event_rejects_null_string_arguments_in_order() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpOpenErrorEvent::default();
-    let mut target = [0_i8; 8];
-    let mut outbound = [0_i8; 8];
-    let mut message = [0_i8; 8];
+    let mut target = [0 as std::ffi::c_char; 8];
+    let mut outbound = [0 as std::ffi::c_char; 8];
+    let mut message = [0 as std::ffi::c_char; 8];
     let mut written = 0usize;
     let mut outbound_written = 0usize;
     let mut message_written = 0usize;
@@ -3062,8 +3062,8 @@ fn ffi_tun_poll_tcp_open_error_event_checks_all_nulls_before_zero_lengths() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpOpenErrorEvent::default();
-    let mut target = [0_i8; 8];
-    let mut message = [0_i8; 8];
+    let mut target = [0 as std::ffi::c_char; 8];
+    let mut message = [0 as std::ffi::c_char; 8];
     let mut written = 0usize;
     let mut outbound_written = 0usize;
     let mut message_written = 0usize;
@@ -3103,9 +3103,9 @@ fn ffi_tun_poll_tcp_open_error_event_rejects_zero_lengths_in_order() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpOpenErrorEvent::default();
-    let mut target = [0_i8; 8];
-    let mut outbound = [0_i8; 8];
-    let mut message = [0_i8; 8];
+    let mut target = [0 as std::ffi::c_char; 8];
+    let mut outbound = [0 as std::ffi::c_char; 8];
+    let mut message = [0 as std::ffi::c_char; 8];
     let mut written = 0usize;
     let mut outbound_written = 0usize;
     let mut message_written = 0usize;
@@ -3189,9 +3189,9 @@ fn ffi_tun_poll_tcp_open_error_event_validates_arguments_before_core_state() {
     let mut err = std::ptr::null_mut();
     let core = unsafe { xray_core_new(&mut err) };
     let mut event = XrayTcpOpenErrorEvent::default();
-    let mut target = [0_i8; 8];
-    let mut outbound = [0_i8; 8];
-    let mut message = [0_i8; 8];
+    let mut target = [0 as std::ffi::c_char; 8];
+    let mut outbound = [0 as std::ffi::c_char; 8];
+    let mut message = [0 as std::ffi::c_char; 8];
     let mut written = 0usize;
     let mut outbound_written = 0usize;
     let mut message_written = 0usize;
@@ -3253,7 +3253,7 @@ fn ffi_tun_poll_udp_slow_flow_event_rejects_null_target_written_pointer() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayUdpSlowFlowEvent::default();
-    let mut target = [0x7f_i8; 8];
+    let mut target = [0x7f as std::ffi::c_char; 8];
 
     let status = unsafe {
         xray_tun_poll_udp_slow_flow_event(
@@ -3325,8 +3325,8 @@ fn ffi_tun_poll_tcp_remote_write_slow_event_reports_no_packet() {
     let mut err = std::ptr::null_mut();
     let core = loaded_core(&mut err);
     let mut event = XrayTcpRemoteWriteSlowEvent::default();
-    let mut target = [0_i8; 256];
-    let mut outbound = [0_i8; 64];
+    let mut target = [0 as std::ffi::c_char; 256];
+    let mut outbound = [0 as std::ffi::c_char; 64];
     let mut written = 7usize;
     let mut outbound_written = 9usize;
 
@@ -3704,7 +3704,7 @@ fn read_snapshot_json(
     serde_json::from_slice(
         &buffer[..written]
             .iter()
-            .map(|byte| *byte as u8)
+            .map(|byte| byte.to_ne_bytes()[0])
             .collect::<Vec<_>>(),
     )
     .expect("valid snapshot JSON")

@@ -633,7 +633,7 @@
         "quicParams"
       ],
       "id": "FINALMASK",
-      "notes": "TCP supports one tlshello fragment mask. Hysteria supports one Salamander udp mask; other nonempty masks fail closed."
+      "notes": "TCP supports one tlshello fragment mask. Hysteria and XHTTP H3 support one UDP noise mask; Hysteria also supports one Salamander mask, preserving array order."
     },
     {
       "context": "streamSettings.finalmask.udp[] (Hysteria)",
@@ -642,7 +642,28 @@
         "settings"
       ],
       "id": "FINALMASK_ENTRY",
-      "notes": "Only a single salamander mask is supported; type is case-insensitive."
+      "notes": "One noise and (Hysteria only) one salamander mask; type is case-insensitive."
+    },
+    {
+      "context": "streamSettings.finalmask.udp[].settings (noise)",
+      "fields": [
+        "reset",
+        "noise"
+      ],
+      "id": "UDP_NOISE",
+      "notes": "At most 16 packets, each up to 4096 bytes; reset is an idle interval in seconds, zero sends once per carrier peer."
+    },
+    {
+      "context": "streamSettings.finalmask.udp[].settings.noise[]",
+      "fields": [
+        "rand",
+        "randRange",
+        "type",
+        "packet",
+        "delay"
+      ],
+      "id": "UDP_NOISE_ITEM",
+      "notes": "Xray array/str/hex/base64 packets or random length/randRange; delay follows each packet, at most 1000 ms per item and 10 seconds total."
     },
     {
       "context": "streamSettings.finalmask.udp[].settings (salamander)",
@@ -742,6 +763,50 @@
       ],
       "id": "HTTP_SETTINGS",
       "notes": "accounts must be empty; allowTransparent cannot be true. timeout is accepted for compatibility."
+    },
+    {
+      "context": "$.inbounds[] (dokodemo-door)",
+      "fields": [
+        "tag",
+        "protocol",
+        "listen",
+        "port",
+        "settings",
+        "sniffing",
+        "streamSettings"
+      ],
+      "id": "TPROXY_INBOUND",
+      "notes": "Linux transparent TCP/UDP interception only. Firewall and policy routes remain operator-owned; no host network mutation."
+    },
+    {
+      "context": "$.inbounds[].settings (dokodemo-door)",
+      "fields": [
+        "network",
+        "allowedNetwork",
+        "followRedirect",
+        "userLevel"
+      ],
+      "id": "TPROXY_SETTINGS",
+      "notes": "followRedirect must be true; network tcp/udp/tcp,udp (default tcp). Destination rewriting and REDIRECT mode are unsupported."
+    },
+    {
+      "context": "$.inbounds[].streamSettings (dokodemo-door)",
+      "fields": [
+        "network",
+        "security",
+        "sockopt"
+      ],
+      "id": "TPROXY_STREAM",
+      "notes": "Only raw/tcp with none security."
+    },
+    {
+      "context": "$.inbounds[].streamSettings.sockopt (dokodemo-door)",
+      "fields": [
+        "tproxy",
+        "mark"
+      ],
+      "id": "TPROXY_SOCKOPT",
+      "notes": "tproxy must be tproxy; optional nonnegative i32 mark also applies to source-preserving UDP replies. Requires Linux and socket privileges."
     },
     {
       "context": "$.inbounds[]",
@@ -1051,7 +1116,7 @@
         "auth"
       ],
       "id": "HYSTERIA_TRANSPORT",
-      "notes": "Version 2 and bounded authentication; stock QUIC TLS/h3, default bounded BBR configuration. QUIC/socket overrides, fingerprints, bandwidth/obfuscation/hopping options are rejected."
+      "notes": "Version 2 and bounded authentication; stock QUIC TLS/h3, default bounded BBR configuration. FinalMask Salamander, UDP noise and udpHop are supported. Other QUIC/socket overrides, fingerprints and bandwidth overrides are rejected."
     },
     {
       "context": "streamSettings.finalmask.quicParams.udpHop",
@@ -1060,7 +1125,7 @@
         "interval"
       ],
       "id": "UDP_HOP",
-      "notes": "The parser models numeric and comma/range ports, but core carrier compilation rejects nonempty hopping. Empty/default ports are the supported runtime subset."
+      "notes": "Hysteria2 only: numeric or comma/range ports with bounded hop intervals and protected socket replacement. Existing streams survive hops and host rebind. XHTTP H3 rejects nonempty hopping."
     },
     {
       "context": "$.outbounds[].settings (shadowsocks)",

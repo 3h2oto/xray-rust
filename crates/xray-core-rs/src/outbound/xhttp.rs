@@ -70,6 +70,7 @@ pub(super) fn build_xhttp_download(
             &download.stream.security,
             &download.address,
             download.stream.quic_params.as_ref(),
+            download.stream.udp_noise.as_ref(),
         )?,
         happy_eyeballs: happy_eyeballs_config(&download.stream),
     }))
@@ -80,12 +81,13 @@ pub(super) fn build_xhttp_transport(
     security: &StreamSecurity,
     destination: &TargetAddr,
     quic_params: Option<&QuicParamsSettings>,
+    noise: Option<&xray_config::UdpNoiseSettings>,
 ) -> Result<XhttpTransport, CoreError> {
     let http_version = xhttp_http_version(security)?;
     let endpoint = xhttp_endpoint(settings, security, destination)?;
     let config = xhttp_config(settings, matches!(security, StreamSecurity::Reality(_)))?;
     let xmux = xhttp_xmux_policy(settings);
-    let h3_quic = if http_version == XhttpHttpVersion::Http3 {
+    let mut h3_quic = if http_version == XhttpHttpVersion::Http3 {
         xhttp_h3_quic_config(quic_params)?
     } else {
         // Xray retains finalmask.quicParams in every stream config but only
@@ -93,6 +95,10 @@ pub(super) fn build_xhttp_transport(
         H3QuicConfig::default()
     };
 
+    if noise.is_some() && http_version != XhttpHttpVersion::Http3 {
+        return Err(invalid_xhttp_configuration("UDP noise requires XHTTP H3"));
+    }
+    h3_quic.udp_noise = noise.map(udp_noise_config).transpose()?;
     XhttpTransport::new_with_h3_quic(config, endpoint, http_version, xmux, h3_quic)
         .map_err(invalid_xhttp_configuration)
 }
@@ -439,6 +445,32 @@ pub(super) const fn xhttp_uplink_data_placement(
         xray_config::XhttpUplinkDataPlacement::Cookie => XhttpUplinkDataPlacement::Cookie,
         xray_config::XhttpUplinkDataPlacement::Header => XhttpUplinkDataPlacement::Header,
     }
+}
+
+pub(super) fn udp_noise_config(
+    noise: &xray_config::UdpNoiseSettings,
+) -> Result<xray_transport::udp_noise::UdpNoiseConfig, CoreError> {
+    use xray_transport::udp_noise::{NoiseRange, UdpNoiseConfig, UdpNoiseItem};
+    let range = |r: xray_config::FragmentRange| NoiseRange {
+        from: r.from,
+        to: r.to,
+    };
+    let config = UdpNoiseConfig {
+        reset_secs: range(noise.reset_secs),
+        before_salamander: noise.before_salamander,
+        items: noise
+            .items
+            .iter()
+            .map(|i| UdpNoiseItem {
+                packet: i.packet.clone(),
+                random_length: range(i.random_length),
+                random_bytes: range(i.random_bytes),
+                delay_ms: range(i.delay_ms),
+            })
+            .collect(),
+    };
+    config.validate().map_err(invalid_xhttp_configuration)?;
+    Ok(config)
 }
 
 #[cfg(test)]

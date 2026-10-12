@@ -163,7 +163,7 @@ fn hysteria_salamander_hopping_and_fail_closed_masks() {
         json!([{"type":"salamander","settings":{"password":"abc"}}]),
         json!([{"type":"salamander","settings":{"password":"synthetic-secret", "packetSize":512}}]),
         json!([{"type":"salamander","settings":{"password":"synthetic-secret", "unknown":true}}]),
-        json!([{"type":"noise","settings":{}}]),
+        json!([{"type":"noise","settings":{"noise":[{"rand":4097}]}}]),
         json!([{"type":"salamander","settings":{"password":"synthetic-secret"}}, {"type":"salamander","settings":{"password":"synthetic-secret"}}]),
         json!({"type":"salamander"}),
     ] {

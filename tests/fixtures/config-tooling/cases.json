@@ -1279,7 +1279,7 @@
     {
       "name": "nonempty-finalmask",
       "accepted": false,
-      "errorPath": "$.outbounds[0].streamSettings.finalmask.udp",
+      "errorPath": "$.outbounds[0].streamSettings.finalmask.udp[0]",
       "base": "transport-chain",
       "set": {
         "/outbounds": [
@@ -2035,6 +2035,87 @@
       },
       "objects": {
         "FREEDOM_FRAGMENT": "/outbounds/0/settings/fragment"
+      }
+    },
+    {
+      "name": "udp-noise-finalmask",
+      "accepted": true,
+      "config": {
+        "outbounds": [
+          {
+            "protocol": "hysteria",
+            "settings": {
+              "version": 2,
+              "address": "server.example",
+              "port": 443
+            },
+            "streamSettings": {
+              "network": "hysteria",
+              "security": "tls",
+              "tlsSettings": {
+                "serverName": "server.example"
+              },
+              "hysteriaSettings": {
+                "version": 2,
+                "auth": "synthetic"
+              },
+              "finalmask": {
+                "udp": [
+                  {
+                    "type": "noise",
+                    "settings": {
+                      "reset": 0,
+                      "noise": [
+                        {
+                          "rand": "16-32",
+                          "delay": 1
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "objects": {
+        "UDP_NOISE": "/outbounds/0/streamSettings/finalmask/udp/0/settings",
+        "UDP_NOISE_ITEM": "/outbounds/0/streamSettings/finalmask/udp/0/settings/noise/0"
+      }
+    },
+    {
+      "name": "linux-tproxy",
+      "accepted": true,
+      "config": {
+        "inbounds": [
+          {
+            "protocol": "dokodemo-door",
+            "listen": "127.0.0.1",
+            "port": 12345,
+            "settings": {
+              "network": "tcp,udp",
+              "followRedirect": true
+            },
+            "streamSettings": {
+              "sockopt": {
+                "tproxy": "tproxy",
+                "mark": 255
+              }
+            }
+          }
+        ],
+        "outbounds": [
+          {
+            "protocol": "freedom"
+          }
+        ]
+      },
+      "objects": {
+        "TPROXY_INBOUND": "/inbounds/0",
+        "TPROXY_SETTINGS": "/inbounds/0/settings",
+        "TPROXY_STREAM": "/inbounds/0/streamSettings",
+        "TPROXY_SOCKOPT": "/inbounds/0/streamSettings/sockopt"
       }
     }
   ]

@@ -2,9 +2,11 @@ mod blackhole;
 mod dns;
 mod fragment;
 mod hysteria;
+mod noise;
 mod routing;
 mod shadowsocks;
 mod stream;
+mod tproxy;
 mod trojan;
 mod vless;
 mod vmess;
@@ -635,6 +637,7 @@ impl Parser<'_> {
             Some("socks") => InboundProtocol::Socks,
             Some("http") => InboundProtocol::Http,
             Some("tun") => InboundProtocol::Tun,
+            Some("dokodemo-door") => InboundProtocol::Tproxy(self.parse_tproxy(inbound, index)?),
             Some(protocol) => {
                 self.error(
                     protocol_path,
@@ -725,7 +728,15 @@ impl Parser<'_> {
         protocol: &InboundProtocol,
     ) {
         let inbound_path = format!("$.inbounds[{index}]");
-        self.reject_unknown_fields(inbound, &inbound_path, &surface::INBOUND);
+        self.reject_unknown_fields(
+            inbound,
+            &inbound_path,
+            if matches!(protocol, InboundProtocol::Tproxy(_)) {
+                &surface::TPROXY_INBOUND
+            } else {
+                &surface::INBOUND
+            },
+        );
 
         let Some(settings) = inbound.get("settings") else {
             return;
@@ -734,7 +745,7 @@ impl Parser<'_> {
         match protocol {
             InboundProtocol::Socks => self.validate_socks_inbound_settings(settings, index),
             InboundProtocol::Http => self.validate_http_inbound_settings(settings, index),
-            InboundProtocol::Tun => {}
+            InboundProtocol::Tun | InboundProtocol::Tproxy(_) => {}
         }
     }
 

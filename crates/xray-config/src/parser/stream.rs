@@ -46,6 +46,7 @@ impl Parser<'_> {
         }
         let quic_params = self.parse_quic_params(stream, stream_network, index);
         let tcp_fragment = self.parse_tcp_fragment_mask(stream, index);
+        let udp_noise = self.parse_udp_noise(stream, index);
         let socket_options = self.parse_socket_options(stream, index);
         if let Some(stream) = stream {
             self.validate_stream_settings_compatibility(stream, index);
@@ -65,6 +66,33 @@ impl Parser<'_> {
             }
         }
 
+        if udp_noise.is_some()
+            && stream_network != StreamNetwork::Hysteria
+            && !(stream_network == StreamNetwork::Xhttp
+                && matches!(&security, StreamSecurity::Tls(tls) if tls.alpn == ["h3"]))
+        {
+            self.error(
+                format!("$.outbounds[{index}].streamSettings.finalmask.udp"),
+                "UDP noise requires Hysteria or XHTTP with exact h3 ALPN",
+            );
+        }
+        if stream_network != StreamNetwork::Hysteria
+            && stream
+                .and_then(|s| s.pointer("/finalmask/udp"))
+                .and_then(Value::as_array)
+                .is_some_and(|m| {
+                    m.iter().any(|v| {
+                        v.get("type")
+                            .and_then(Value::as_str)
+                            .is_some_and(|s| s.eq_ignore_ascii_case("salamander"))
+                    })
+                })
+        {
+            self.error(
+                format!("$.outbounds[{index}].streamSettings.finalmask.udp"),
+                "Salamander requires Hysteria",
+            );
+        }
         Some(StreamSettings {
             // Native Hysteria owns a UDP carrier; other transports retain
             // their existing TCP classification (XHTTP selects H3 later).
@@ -77,6 +105,7 @@ impl Parser<'_> {
             security,
             quic_params,
             tcp_fragment,
+            udp_noise,
             socket_options,
         })
     }
@@ -482,9 +511,6 @@ impl Parser<'_> {
             return None;
         }
         self.reject_unknown_fields(finalmask, &finalmask_path, &surface::FINALMASK);
-        if network != StreamNetwork::Hysteria {
-            self.reject_finalmask_masks(finalmask, "udp", &finalmask_path);
-        }
 
         let quic = finalmask.get("quicParams")?;
         if quic.is_null() {
@@ -633,26 +659,6 @@ impl Parser<'_> {
             max_incoming_streams,
             debug: self.quic_bool_at(quic, "debug", &quic_path)?,
         })
-    }
-
-    pub(super) fn reject_finalmask_masks(
-        &mut self,
-        finalmask: &Value,
-        key: &str,
-        finalmask_path: &str,
-    ) {
-        match finalmask.get(key) {
-            None | Some(Value::Null) => {}
-            Some(Value::Array(masks)) if masks.is_empty() => {}
-            Some(Value::Array(_)) => self.error(
-                format!("{finalmask_path}.{key}"),
-                format!("nonempty finalmask.{key} masks are unsupported"),
-            ),
-            Some(_) => self.error(
-                format!("{finalmask_path}.{key}"),
-                format!("finalmask.{key} must be an array or null"),
-            ),
-        }
     }
 
     pub(super) fn quic_bandwidth_at(

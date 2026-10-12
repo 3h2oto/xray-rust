@@ -395,6 +395,10 @@ expected_rust="$(cat <<'EXPECTED'
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings -W clippy::perf -W clippy::suspicious
       - name: Test
         run: cargo test --workspace --exclude xray-rust-fuzz --all-targets --locked
+      - name: Verify Linux transparent TCP and UDP interception
+        run: |
+          test_binary="$(cargo test --locked -p xray-core-rs --test tproxy_tests --no-run --message-format=json | python3 -c 'import json,sys; print(next(v["executable"] for v in map(json.loads,sys.stdin) if v.get("reason")=="compiler-artifact" and v.get("executable")))')"
+          sudo env XRAY_TPROXY_ISOLATED_NETWORK=1 XRAY_TPROXY_TEST_BINARY="$test_binary" unshare --net bash scripts/check-tproxy-linux.sh
       - name: Build public API documentation
         env:
           RUSTDOCFLAGS: -D warnings

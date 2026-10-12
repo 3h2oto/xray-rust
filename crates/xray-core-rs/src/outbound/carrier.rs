@@ -37,6 +37,7 @@ impl StreamCarrier {
         if stream.network != Network::Tcp {
             return Err(CoreError::UnsupportedOutboundNetwork);
         }
+        super::validate_udp_noise(stream)?;
         let fragment = fragment_config(stream)?;
         let transport = build_connector(&stream.security, server);
         let transport_layer = build_transport_layer(stream, server, port, &transport, paths)?;
@@ -220,6 +221,7 @@ fn build_transport_layer(
             &stream.security,
             server,
             stream.quic_params.as_ref(),
+            stream.udp_noise.as_ref(),
         )?),
     })
 }

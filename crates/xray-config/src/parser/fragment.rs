@@ -109,7 +109,11 @@ impl Parser<'_> {
         })
     }
 
-    fn fragment_range(&mut self, raw: Option<&Value>, path: &str) -> Option<FragmentRange> {
+    pub(super) fn fragment_range(
+        &mut self,
+        raw: Option<&Value>,
+        path: &str,
+    ) -> Option<FragmentRange> {
         let pair = match raw {
             None | Some(Value::Null) => Some((0, 0)),
             Some(Value::String(s)) => parse_xhttp_range_string(s),

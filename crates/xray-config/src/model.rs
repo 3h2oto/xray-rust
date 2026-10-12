@@ -519,9 +519,18 @@ pub enum SniffingDestination {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InboundProtocol {
+    Tproxy(TproxySettings),
     Socks,
     Http,
     Tun,
+}
+
+/// Linux transparent interception; the operator owns routing/firewall rules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TproxySettings {
+    pub tcp: bool,
+    pub udp: bool,
+    pub mark: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -888,7 +897,23 @@ pub struct StreamSettings {
     pub quic_params: Option<QuicParamsSettings>,
     /// One normalized FinalMask or legacy freedom `tlshello` transform.
     pub tcp_fragment: Option<TcpFragmentSettings>,
+    pub udp_noise: Option<UdpNoiseSettings>,
     pub socket_options: Option<SocketOptions>,
+}
+
+/// Bounded FinalMask UDP prelude; ranges are inclusive and delays follow each packet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UdpNoiseSettings {
+    pub items: Vec<UdpNoiseItem>,
+    pub reset_secs: FragmentRange,
+    pub before_salamander: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UdpNoiseItem {
+    pub packet: Vec<u8>,
+    pub random_length: FragmentRange,
+    pub random_bytes: FragmentRange,
+    pub delay_ms: FragmentRange,
 }
 
 /// Bounded first-ClientHello record fragmentation. Ranges are inclusive.

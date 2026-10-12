@@ -73,6 +73,12 @@ impl HysteriaOutbound {
         }
         let mut carrier = xray_transport::hysteria::HysteriaCarrierConfig {
             salamander_password: auth.salamander_password.clone().map(Arc::new),
+            noise: config
+                .stream
+                .udp_noise
+                .as_ref()
+                .map(super::xhttp::udp_noise_config)
+                .transpose()?,
             ..Default::default()
         };
         if let Some(quic) = &config.stream.quic_params {

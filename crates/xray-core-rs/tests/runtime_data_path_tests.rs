@@ -121,6 +121,7 @@ fn vless_outbound(security: StreamSecurity, server: TargetAddr, port: u16) -> Ou
             security,
             quic_params: None,
             tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         },
         settings: OutboundSettings::Vless(VlessOutboundSettings {
@@ -147,6 +148,7 @@ fn freedom_outbound() -> OutboundConfig {
             security: StreamSecurity::None,
             quic_params: None,
             tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         },
         settings: OutboundSettings::Freedom,
@@ -164,6 +166,7 @@ fn dns_outbound(settings: DnsOutboundSettings) -> OutboundConfig {
             security: StreamSecurity::None,
             quic_params: None,
             tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         },
         settings: OutboundSettings::Dns(settings),

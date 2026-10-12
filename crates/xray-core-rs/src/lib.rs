@@ -303,6 +303,10 @@ pub enum CoreError {
     AlreadyStopped,
     #[error("no supported inbound found")]
     NoSupportedInbound,
+    #[error(
+        "TPROXY inbound requires Linux; configure a TUN, SOCKS or HTTP inbound on this platform"
+    )]
+    UnsupportedTproxyPlatform,
     #[error("no supported outbound found")]
     NoSupportedOutbound,
     /// A path that needs a dialable transport (an internal DNS client, a
@@ -673,6 +677,18 @@ impl Core {
         }
         ensure_effective_dns_tag(&mut config);
         for outbound in &config.outbounds {
+            outbound::validate_udp_noise(&outbound.stream)?;
+            if outbound.stream.udp_noise.is_some()
+                && matches!(
+                    outbound.settings,
+                    xray_config::OutboundSettings::Freedom
+                        | xray_config::OutboundSettings::Blackhole(_)
+                        | xray_config::OutboundSettings::Dns(_)
+                        | xray_config::OutboundSettings::Wireguard(_)
+                )
+            {
+                return Err(CoreError::UnsupportedOutboundNetwork);
+            }
             if let Some(fragment) = &outbound.stream.tcp_fragment {
                 if outbound.stream.network != xray_config::Network::Tcp
                     || matches!(outbound.settings, xray_config::OutboundSettings::Freedom)
@@ -1056,8 +1072,13 @@ impl Core {
 
         let mut bound_listeners = Vec::new();
         let mut tun_inbounds = Vec::new();
+        let mut tproxy_inbounds = Vec::new();
         for inbound in &self.config.inbounds {
             match inbound.protocol {
+                InboundProtocol::Tproxy(settings) => {
+                    tproxy_inbounds.push((socks::tproxy::bind(inbound, settings)?, inbound));
+                    continue;
+                }
                 InboundProtocol::Socks | InboundProtocol::Http => {}
                 InboundProtocol::Tun => {
                     tun_inbounds.push((
@@ -1099,7 +1120,7 @@ impl Core {
             ));
         }
 
-        if bound_listeners.is_empty() && tun_inbounds.is_empty() {
+        if bound_listeners.is_empty() && tun_inbounds.is_empty() && tproxy_inbounds.is_empty() {
             return Err(CoreError::NoSupportedInbound);
         }
 
@@ -1142,10 +1163,32 @@ impl Core {
                     Arc::clone(&self.connection_registry),
                     self.shutdown.subscribe(),
                 )),
-                InboundProtocol::Tun => continue,
+                InboundProtocol::Tun | InboundProtocol::Tproxy(_) => continue,
             };
             inbounds.push(bound);
             tasks.push(task);
+        }
+        for (bound, inbound) in tproxy_inbounds {
+            inbounds.push(BoundInbound {
+                tag: inbound.tag.clone(),
+                addr: bound.addr,
+            });
+            let context = socks::tproxy::Context {
+                inbound_tag: inbound.tag.clone(),
+                config: Arc::clone(&config),
+                router: Arc::clone(&outbound_router),
+                dns: runtime_dns_resolvers.clone(),
+                dialer: Arc::clone(&self.transport_dialer),
+                sniffing: inbound.sniffing.clone(),
+                policy: policy::effective_policy_for_level(&config, inbound.user_level),
+                logger: self.runtime_logger.clone(),
+                registry: Arc::clone(&self.connection_registry),
+            };
+            tasks.push(tokio::spawn(socks::tproxy::serve(
+                bound,
+                context,
+                self.shutdown.subscribe(),
+            )));
         }
         if has_tun_inbound {
             let tun_inbound_tag = tun_inbounds.first().and_then(|(tag, _, _)| tag.clone());

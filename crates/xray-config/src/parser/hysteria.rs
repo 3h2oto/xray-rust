@@ -94,50 +94,42 @@ impl Parser<'_> {
         if masks.is_empty() {
             return None;
         }
-        if masks.len() != 1
-            || !masks[0]
-                .get("type")
+        let (mask_index, mask) = masks.iter().enumerate().find(|(_, m)| {
+            m.get("type")
                 .and_then(Value::as_str)
-                .is_some_and(|kind| kind.eq_ignore_ascii_case("salamander"))
-        {
-            self.error(path, "Hysteria supports one salamander UDP mask only");
-            return None;
-        }
-        let mask = &masks[0];
-        self.reject_unknown_fields(mask, &format!("{path}[0]"), &surface::FINALMASK_ENTRY);
+                .is_some_and(|s| s.eq_ignore_ascii_case("salamander"))
+        })?;
+        let path = format!("{path}[{mask_index}]");
+        self.reject_unknown_fields(mask, &path, &surface::FINALMASK_ENTRY);
         let settings = mask.get("settings").filter(|v| v.is_object());
         let Some(settings) = settings else {
             self.error(
-                format!("{path}[0].settings"),
+                format!("{path}.settings"),
                 "Salamander settings must be an object",
             );
             return None;
         };
-        self.reject_unknown_fields(
-            settings,
-            &format!("{path}[0].settings"),
-            &surface::SALAMANDER,
-        );
+        self.reject_unknown_fields(settings, &format!("{path}.settings"), &surface::SALAMANDER);
         // A positive packetSize selects Gecko in Xray, not Salamander.
         if settings
             .get("packetSize")
             .is_some_and(|v| !v.is_null() && v.as_i64() != Some(0) && v.as_str() != Some("0"))
         {
             self.error(
-                format!("{path}[0].settings.packetSize"),
+                format!("{path}.settings.packetSize"),
                 "Gecko packetSize is unsupported",
             );
         }
         let Some(password) = settings.get("password").and_then(Value::as_str) else {
             self.error(
-                format!("{path}[0].settings.password"),
+                format!("{path}.settings.password"),
                 "Salamander requires a password",
             );
             return None;
         };
         if !(4..=4096).contains(&password.len()) {
             self.error(
-                format!("{path}[0].settings.password"),
+                format!("{path}.settings.password"),
                 "Salamander password must contain 4..=4096 UTF-8 bytes",
             );
             return None;

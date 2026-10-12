@@ -28,5 +28,13 @@
     "Verified immutable annotated tags and exact SDK/core pins.",
     "Canonical Apple/Android artifacts, checksums and clean package-consumer checks."
   ],
-  "priorDecisions": "Android network/lock checks remain separately owner-skipped; older limitations retain their recorded scope."
+  "priorDecisions": "Android network/lock checks remain separately owner-skipped; older limitations retain their recorded scope.",
+  "scopeExpansion": {
+    "ownerInstruction": "Сначала реализовать UDP noise и TPROXY, затем выпускать",
+    "requiredBeforePublication": [
+      "#52 FinalMask UDP noise on Hysteria2 and XHTTP H3",
+      "#47 Linux TPROXY inbound"
+    ],
+    "metadataOnlyPromotion": false
+  }
 }

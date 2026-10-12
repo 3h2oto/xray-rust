@@ -1883,6 +1883,7 @@ fn rust_vless_outbound(
             security,
             quic_params: None,
             tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         },
         settings: OutboundSettings::Vless(VlessOutboundSettings {
@@ -1909,6 +1910,7 @@ fn rust_freedom_outbound(tag: &str) -> OutboundConfig {
             security: StreamSecurity::None,
             quic_params: None,
             tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         },
         settings: OutboundSettings::Freedom,
@@ -2738,6 +2740,9 @@ fn selected_xhttp_interop_cases() -> Vec<XhttpInteropCase> {
 }
 
 async fn run_local_xray_xhttp_interop(case: XhttpInteropCase) {
+    run_local_xray_xhttp_interop_with_noise(case, false).await;
+}
+async fn run_local_xray_xhttp_interop_with_noise(case: XhttpInteropCase, noise: bool) {
     let xray_checkout = resolve_xray_checkout();
     let (server_security, tls_alpn, client_security) = match case.security {
         XhttpInteropSecurity::H1None => (XrayInboundSecurity::None, None, StreamSecurity::None),
@@ -2802,7 +2807,15 @@ async fn run_local_xray_xhttp_interop(case: XhttpInteropCase) {
     .await
     .expect("start XHTTP Xray server timeout");
 
-    let rust_config = rust_xhttp_core_config(xray.addr, client_security, case.mode);
+    let mut rust_config = rust_xhttp_core_config(xray.addr, client_security, case.mode);
+    if noise {
+        let raw = serde_json::json!({"outbounds":[{"protocol":"freedom","streamSettings":{"network":"xhttp","security":"tls","tlsSettings":{"serverName":"example.com","alpn":["h3"]},"finalmask":{"udp":[{"type":"noise","settings":{"noise":[{"type":"str","packet":"synthetic","delay":2},{"rand":"16-24","delay":1}]}}]}}}]});
+        rust_config.outbounds[0].stream.udp_noise =
+            parse_xray_json(&raw.to_string()).unwrap().config.outbounds[0]
+                .stream
+                .udp_noise
+                .clone();
+    }
     if case.security == XhttpInteropSecurity::H2Reality {
         // The first REALITY contact may wait for the cover-origin detector.
         // Warm it with the exact XHTTP mode being tested, never with the raw
@@ -3649,4 +3662,20 @@ async fn fragment_finalmask_reality_vision_direct_interop() {
 #[ignore = "requires pinned Xray-core checkout/binary and REALITY cover network"]
 async fn fragment_legacy_dialer_proxy_reality_vision_direct_interop() {
     run_fragmented_xray_interop(true, true, true).await;
+}
+
+#[tokio::test]
+#[ignore = "requires pinned Xray-core checkout/binary"]
+async fn udp_noise_xhttp_h3_interop_all_modes() {
+    for case in XHTTP_INTEROP_CASES
+        .into_iter()
+        .filter(|case| case.security == XhttpInteropSecurity::H3Tls)
+    {
+        timeout(
+            Duration::from_secs(60),
+            run_local_xray_xhttp_interop_with_noise(case, true),
+        )
+        .await
+        .unwrap();
+    }
 }

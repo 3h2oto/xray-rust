@@ -1154,6 +1154,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
         )
@@ -1197,6 +1198,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             settings: OutboundSettings::Freedom,
@@ -1211,6 +1213,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             settings: OutboundSettings::Dns(DnsOutboundSettings {
@@ -1260,6 +1263,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
         )
@@ -1719,6 +1723,7 @@ mod tests {
                     security: StreamSecurity::None,
                     quic_params: None,
                     tcp_fragment: None,
+                    udp_noise: None,
                     socket_options: None,
                 },
                 settings: OutboundSettings::Freedom,
@@ -2104,6 +2109,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
         );
@@ -2163,6 +2169,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
         );
@@ -2273,6 +2280,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
         );
@@ -2341,6 +2349,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
         );
@@ -2787,6 +2796,7 @@ mod tests {
                     security: StreamSecurity::None,
                     quic_params: None,
                     tcp_fragment: None,
+                    udp_noise: None,
                     socket_options: None,
                 },
                 settings: OutboundSettings::Freedom,
@@ -2992,6 +3002,7 @@ mod tests {
                     security: StreamSecurity::None,
                     quic_params: None,
                     tcp_fragment: None,
+                    udp_noise: None,
                     socket_options: None,
                 },
                 settings: OutboundSettings::Freedom,
@@ -3065,6 +3076,7 @@ mod tests {
                     security: StreamSecurity::None,
                     quic_params: None,
                     tcp_fragment: None,
+                    udp_noise: None,
                     socket_options: None,
                 },
                 settings: OutboundSettings::Freedom,

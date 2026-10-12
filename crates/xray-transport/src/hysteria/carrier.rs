@@ -27,6 +27,7 @@ pub(crate) const SALT_LEN: usize = 8;
 pub struct HysteriaCarrierConfig {
     pub salamander_password: Option<Arc<Zeroizing<String>>>,
     pub udp_hop: H3UdpHopConfig,
+    pub noise: Option<crate::udp_noise::UdpNoiseConfig>,
 }
 
 impl fmt::Debug for HysteriaCarrierConfig {
@@ -40,6 +41,9 @@ impl fmt::Debug for HysteriaCarrierConfig {
 
 impl HysteriaCarrierConfig {
     pub(crate) fn validate(&self) -> Result<(), HysteriaError> {
+        if let Some(noise) = &self.noise {
+            noise.validate().map_err(|_| HysteriaError::Configuration)?;
+        }
         if self
             .salamander_password
             .as_ref()
@@ -76,7 +80,7 @@ impl HysteriaCarrierConfig {
     }
 
     pub(crate) fn enabled(&self) -> bool {
-        self.salamander_password.is_some() || !self.udp_hop.ports.is_empty()
+        self.salamander_password.is_some() || !self.udp_hop.ports.is_empty() || self.noise.is_some()
     }
 
     pub(crate) fn next_peer(&self, mut peer: SocketAddr) -> SocketAddr {
@@ -110,7 +114,12 @@ pub(crate) fn wrap(
     let inner = crate::connected_quic::wrap(socket, wire_peer)?;
     #[cfg(not(target_os = "macos"))]
     let inner = quinn::TokioRuntime.wrap_udp_socket(socket)?;
-    Ok(Arc::new(CarrierSocket {
+    let inner = if let Some(noise) = config.noise.as_ref().filter(|n| !n.before_salamander) {
+        crate::udp_noise::wrap(inner, wire_peer, noise.clone())?
+    } else {
+        inner
+    };
+    let wrapped: Arc<dyn AsyncUdpSocket> = Arc::new(CarrierSocket {
         inner,
         logical_peer,
         wire_peer,
@@ -120,7 +129,12 @@ pub(crate) fn wrap(
             .salamander_password
             .as_ref()
             .map(|_| Mutex::new(vec![0; 65_536].into_boxed_slice())),
-    }))
+    });
+    if let Some(noise) = config.noise.as_ref().filter(|n| n.before_salamander) {
+        crate::udp_noise::wrap(wrapped, logical_peer, noise.clone())
+    } else {
+        Ok(wrapped)
+    }
 }
 
 struct CarrierSocket {
@@ -288,6 +302,77 @@ impl AsyncUdpSocket for CarrierSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn udp_noise_mask_order_is_visible_on_the_wire() {
+        use crate::udp_noise::{NoiseRange, UdpNoiseConfig, UdpNoiseItem};
+        use std::future::poll_fn;
+        for before in [false, true] {
+            let peer = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            let addr = peer.local_addr().unwrap();
+            let raw = UdpSocket::bind("127.0.0.1:0").unwrap();
+            raw.set_nonblocking(true).unwrap();
+            let zero = || NoiseRange { from: 0, to: 0 };
+            let config = HysteriaCarrierConfig {
+                salamander_password: Some(Arc::new(Zeroizing::new("synthetic".into()))),
+                noise: Some(UdpNoiseConfig {
+                    items: vec![UdpNoiseItem {
+                        packet: b"prelude".to_vec(),
+                        random_length: zero(),
+                        random_bytes: zero(),
+                        delay_ms: zero(),
+                    }],
+                    reset_secs: zero(),
+                    before_salamander: before,
+                }),
+                ..Default::default()
+            };
+            let client = wrap(raw, addr, addr, &config).unwrap();
+            let mut poller = client.clone().create_io_poller();
+            for contents in [b"first".as_slice(), b"later"] {
+                let transmit = udp::Transmit {
+                    destination: addr,
+                    ecn: None,
+                    contents,
+                    segment_size: None,
+                    src_ip: None,
+                };
+                loop {
+                    match client.try_send(&transmit) {
+                        Ok(()) => break,
+                        Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                            poll_fn(|cx| poller.as_mut().poll_writable(cx))
+                                .await
+                                .unwrap()
+                        }
+                        Err(e) => panic!("{e}"),
+                    }
+                }
+            }
+            for (index, expected) in [b"prelude".as_slice(), b"first", b"later"]
+                .into_iter()
+                .enumerate()
+            {
+                let mut bytes = [0; 128];
+                let (n, _) =
+                    tokio::time::timeout(Duration::from_secs(2), peer.recv_from(&mut bytes))
+                        .await
+                        .unwrap()
+                        .unwrap();
+                if index == 0 && !before {
+                    assert_eq!(&bytes[..n], expected);
+                } else {
+                    let mut meta = udp::RecvMeta {
+                        len: n,
+                        stride: n,
+                        ..Default::default()
+                    };
+                    decode("synthetic", &mut bytes, &mut meta);
+                    assert_eq!(&bytes[..meta.len], expected);
+                }
+            }
+        }
+    }
 
     #[test]
     fn independent_blake2b_256_vector_and_gro_boundaries() {

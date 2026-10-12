@@ -575,3 +575,5 @@ pub fn protect_udp_socket(
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
+
+pub mod udp_noise;

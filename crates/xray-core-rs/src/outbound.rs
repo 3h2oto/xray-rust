@@ -3833,6 +3833,19 @@ pub async fn open_vless_tcp_stream(
     open_vless_tcp_stream_with_resolver(outbound, target, &SystemDnsResolver).await
 }
 
+pub(crate) fn validate_udp_noise(stream: &StreamSettings) -> Result<(), CoreError> {
+    if let Some(noise) = &stream.udp_noise {
+        if !(matches!(stream.transport, StreamTransport::Hysteria(_))
+            || matches!(stream.transport, StreamTransport::Xhttp(_))
+                && matches!(&stream.security, StreamSecurity::Tls(tls) if tls.alpn == ["h3"]))
+        {
+            return Err(CoreError::UnsupportedOutboundNetwork);
+        }
+        xhttp::udp_noise_config(noise)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -3920,6 +3933,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             settings: OutboundSettings::Freedom,
@@ -3937,6 +3951,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             settings: OutboundSettings::Vless(VlessOutboundSettings {
@@ -3963,6 +3978,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             settings: OutboundSettings::Dns(settings),
@@ -4261,6 +4277,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             Duration::from_secs(60),
@@ -4302,6 +4319,7 @@ mod tests {
                     }),
                     quic_params: None,
                     tcp_fragment: None,
+                    udp_noise: None,
                     socket_options: None,
                 },
                 Duration::from_secs(60),
@@ -4338,6 +4356,7 @@ mod tests {
             }),
             quic_params: None,
             tcp_fragment: None,
+            udp_noise: None,
             socket_options: None,
         };
 
@@ -4371,6 +4390,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             Duration::from_secs(60),
@@ -4445,6 +4465,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             Duration::from_secs(60),
@@ -4482,6 +4503,7 @@ mod tests {
                 security: StreamSecurity::Reality(reality.clone()),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: Some(SocketOptions {
                     happy_eyeballs: Some(HappyEyeballsSettings {
                         prioritize_ipv6: configured.prioritize_ipv6,
@@ -4524,6 +4546,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             Duration::from_secs(60),
@@ -4542,6 +4565,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: Some(SocketOptions {
                     happy_eyeballs: Some(HappyEyeballsSettings::default()),
                 }),
@@ -4565,6 +4589,7 @@ mod tests {
                 security: StreamSecurity::None,
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             Duration::from_secs(60),
@@ -4586,6 +4611,7 @@ mod tests {
                 }),
                 quic_params: None,
                 tcp_fragment: None,
+                udp_noise: None,
                 socket_options: None,
             },
             Duration::from_secs(60),

@@ -98,6 +98,7 @@ pub struct H3QuicConfig {
     pub disable_path_mtu_discovery: bool,
     pub congestion: H3Congestion,
     pub udp_hop: H3UdpHopConfig,
+    pub udp_noise: Option<crate::udp_noise::UdpNoiseConfig>,
     pub debug: bool,
 }
 
@@ -119,6 +120,7 @@ impl Default for H3QuicConfig {
             )),
             congestion: H3Congestion::BbrStandard,
             udp_hop: H3UdpHopConfig::default(),
+            udp_noise: None,
             debug: false,
         }
     }
@@ -146,6 +148,9 @@ impl H3QuicConfig {
     /// `adaptive_receive_windows == false`. Explicit adaptive maxima are
     /// rejected instead of being silently reduced to those static limits.
     pub fn diagnostics(&self) -> Result<H3Diagnostics, H3Error> {
+        if let Some(noise) = &self.udp_noise {
+            noise.validate().map_err(H3Error::UdpSocket)?;
+        }
         if self.version != H3QuicVersion::V1 {
             return Err(H3Error::UnsupportedQuicVersion {
                 requested: self.version,
@@ -509,6 +514,11 @@ pub(crate) async fn connect_quic_transport_with_datagrams(
     protect_quic_socket(&socket, config.socket_protector.as_deref())?;
     socket.set_nonblocking(true).map_err(H3Error::UdpSocket)?;
 
+    let noise_carrier = crate::hysteria::HysteriaCarrierConfig {
+        noise: config.quic.udp_noise.clone(),
+        ..Default::default()
+    };
+    let carrier = carrier.or_else(|| noise_carrier.enabled().then_some(&noise_carrier));
     let endpoint = if let Some(carrier) = carrier.filter(|c| c.enabled()) {
         let wire_peer = carrier.next_peer(remote_addr);
         let socket = crate::hysteria::carrier::wrap(socket, remote_addr, wire_peer, carrier)

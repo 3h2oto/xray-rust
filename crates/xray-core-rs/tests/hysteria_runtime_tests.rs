@@ -8,9 +8,7 @@ use tokio::time::timeout;
 use xray_proxy::inbound::{encode_socks5_udp_datagram, parse_socks5_udp_datagram};
 use xray_routing::{Network, Target, TargetAddr};
 
-#[tokio::test]
-#[ignore = "requires pinned Xray/native Hysteria; use the interop scripts"]
-async fn parsed_salamander_hop_profile_reaches_shared_core_carrier() {
+async fn run_parsed_salamander_hop_profile(noise_before: Option<bool>) {
     use std::{sync::Arc, time::Duration};
     use xray_core_rs::Core;
     use xray_transport::TransportDialer;
@@ -25,6 +23,13 @@ async fn parsed_salamander_hop_profile_reaches_shared_core_carrier() {
             "udp":[{"type":"salamander","settings":{"password":support::server::SALAMANDER_PASSWORD}}],
             "quicParams":{"udpHop":{"ports":server.address.port(),"interval":5}}
         });
+        if let Some(before) = noise_before {
+            let noise = serde_json::json!({"type":"noise","settings":{"noise":[
+                {"type":"str","packet":"synthetic-noise","delay":"1-3"},
+                {"rand":"16-24","delay":1}, {"type":"base64","packet":"AAEC"}]}});
+            let masks = profile["outbounds"][0]["streamSettings"]["finalmask"]["udp"].as_array_mut().unwrap();
+            if before { masks.insert(0,noise); } else { masks.push(noise); }
+        }
         let parsed = xray_config::parse_xray_json(&profile.to_string()).unwrap();
         let protector = Arc::new(Protector::default());
         let resolver = Arc::new(Bootstrap::default());
@@ -264,4 +269,20 @@ async fn hysteria_runtime_concurrent_open_isolated_trust_and_socket_policy() {
     })
     .await
     .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires pinned reference"]
+async fn parsed_salamander_hop_profile_reaches_shared_core_carrier() {
+    run_parsed_salamander_hop_profile(None).await;
+}
+#[tokio::test]
+#[ignore = "requires pinned reference"]
+async fn udp_noise_hysteria_before_salamander_hop_and_rebind() {
+    run_parsed_salamander_hop_profile(Some(true)).await;
+}
+#[tokio::test]
+#[ignore = "requires pinned reference"]
+async fn udp_noise_hysteria_after_salamander_hop_and_rebind() {
+    run_parsed_salamander_hop_profile(Some(false)).await;
 }

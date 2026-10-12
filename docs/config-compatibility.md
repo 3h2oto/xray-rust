@@ -25,7 +25,7 @@ pinned Xray-core v26.7.28 spelling:
 Both settings are optional and can be used separately. Passwords contain
 4..4096 UTF-8 bytes and remain redacted/zeroized in typed configuration.
 `packetSize` must be absent, null or zero: Gecko is a different wire protocol
-and is unsupported. Only one mask is supported; unknown mask fields fail.
+and is unsupported. One Salamander mask may be combined with one UDP noise mask (below); unknown mask fields fail.
 Port lists preserve order and duplicate weights, with at most 65535 expanded
 entries. Each interval bound defaults from zero to 30 seconds; enabled hopping
 requires ordered bounds of at least five seconds. The first packet already uses
@@ -78,7 +78,7 @@ in a dedicated `freedom` outbound's `settings`, then reference its tag with
 `streamSettings.sockopt.dialerProxy`. That handler must use raw TCP with no
 security, socket overrides, mux or proxy chain. The parser normalizes its sole
 fragment transform into the caller's stream. General `dialerProxy` chaining,
-combining two fragment masks, UDP noise, QUIC/H3 fragmentation and split XHTTP
+combining two fragment masks, legacy freedom UDP noises, QUIC/H3 fragmentation and split XHTTP
 downloads remain unsupported. A raw freedom outbound can also fragment an
 application's first complete TLS record directly.
 
@@ -91,6 +91,82 @@ promise separate IP packets. Nonzero delays use cancellable async timers.
 Dropping the handshake drops its bounded buffer and timer without a background
 sender. The option is disabled by default and adds no fragment wrapper to
 existing profiles. Configured delays intentionally increase handshake latency.
+
+## v0.8 UDP noise
+
+Hysteria2 and XHTTP with exact TLS `alpn: ["h3"]` accept one FinalMask UDP
+noise mask, using Xray-core v26.7.28's format:
+
+```json
+"finalmask": {"udp": [{"type": "noise", "settings": {
+  "reset": 0,
+  "noise": [
+    {"rand": "16-32", "delay": "1-3"},
+    {"type": "str", "packet": "synthetic-example", "delay": 1},
+    {"type": "base64", "packet": "AAEC", "delay": 0}
+  ]
+}}]}
+```
+
+Ranges are inclusive and reversed bounds normalize. Up to 16 items, 4096 bytes
+per datagram, 1000 ms delay per item and 10 seconds total are accepted. Random
+length is `rand`; optional `randRange` bounds byte values (default 0..255).
+Literal encodings are `str` (UTF-8 without trimming), `hex`, standard padded
+`base64`, or a byte array with absent/`array` type. Random and literal packets
+cannot be combined. These are FinalMask spellings; legacy `type: "rand"` with
+`packet: "16-32"` and freedom `settings.noises` remain unsupported.
+
+Each delay follows its noise packet, including the last packet before the
+first QUIC datagram. No wrapper is installed when absent. With `reset: 0`,
+later application datagrams pass unchanged; a positive range sets a sliding
+idle interval in seconds after each successful send, as in pinned Xray-core.
+A new protected carrier on hop/rebind has a fresh prelude. Noise before a
+Salamander entry is obfuscated; noise after Salamander is raw. Neither changes
+the QUIC payload. All sends occur after host socket protection, timers are
+asynchronous, and cancellation drops the state without a background sender.
+Configured delays count against the existing connection deadline.
+
+## v0.8 Linux TPROXY inbound
+
+```json
+{
+  "inbounds": [{
+    "tag": "transparent", "protocol": "dokodemo-door",
+    "listen": "0.0.0.0", "port": 12345,
+    "settings": {"network": "tcp,udp", "followRedirect": true},
+    "streamSettings": {"sockopt": {"tproxy": "tproxy"}}
+  }],
+  "outbounds": [{"protocol": "freedom", "tag": "direct"}]
+}
+```
+
+This is Linux transparent interception, requiring socket privileges
+(`CAP_NET_ADMIN` or appropriate `CAP_NET_RAW`). The operator supplies TPROXY
+firewall rules, fwmark policy routes, and an exclusion for the core's own
+upstream traffic (for example by its dedicated UID). The core does not install
+or change firewall rules, interfaces or routes. Optional nonnegative i32
+`sockopt.mark` applies to the inbound and source-preserving UDP reply sockets;
+it is not a general outbound socket-mark configuration.
+
+Use separate IPv4/IPv6 inbounds; IPv6 listeners are v6-only. `network` accepts
+`tcp`, `udp`, comma-separated values or arrays; `allowedNetwork` is the alias
+and `network` takes precedence. Default is TCP. TCP uses the accepted socket's
+original local address; UDP uses kernel original-destination ancillary data,
+never the listener address as a substitute. Truncated/missing metadata is
+rejected. UDP flows include both source and original destination in their key,
+and replies retain the original destination address/port even after DNS or
+sniffing rewrites. A connection directly to the local interception listener is
+rejected to avoid self-dial loops.
+
+Routing, sniffing, DNS/FakeDNS, protocol sessions, connection accounting and
+close handling reuse the existing handlers. TCP is capped at 1024 concurrent
+connections per listener. UDP uses the shared 1024-flow/64-pending-open global
+budgets, at most 128 flows per listener and four queued packets per flow
+(at most 256 KiB); idle expiry is 60 seconds and all tasks close on core stop.
+Destination rewriting, `portMap`, REDIRECT mode, UNIX sockets and arbitrary
+inbound stream/socket overrides are unsupported. Apple, Android and Windows
+reject this inbound at start; mobile applications continue to use their TUN
+adapter. UDP noise is available through their ordinary JSON configuration.
 
 ## v0.8 development client protocols
 

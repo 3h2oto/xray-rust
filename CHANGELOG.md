@@ -70,7 +70,7 @@ Stable release preparation; publication status is tracked in [the promotion reco
 - Support first-ClientHello fragmentation for TCP TLS/REALITY in FinalMask and
   dedicated freedom `dialerProxy` profiles. Preserve handshake authentication
   and Vision direct mode; delay/count/memory bounds and unsupported combinations
-  fail explicitly. UDP noise and Linux TPROXY remain deferred.
+  fail explicitly. UDP noise supports bounded FinalMask preludes on Hysteria2 and XHTTP H3, including Salamander ordering and idle reset. Linux TPROXY adds transparent IPv4/IPv6 TCP/UDP via dokodemo-door with shared routing and bounded flows.
 
 - Avoid an unnecessary Apple initial-path rebind while preserving real network
   changes and recovery. Absorb Hysteria UDP receive bursts with a bounded

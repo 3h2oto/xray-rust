@@ -20,7 +20,7 @@ The [2026-10-10 issue follow-ups](benchmarks/results/2026-10-10-pr42-issues/READ
 advance the draft to ABI 1.11 with opt-in TUN admission, Hysteria host stream
 budgets/rebind, Salamander/port hopping and bounded TLS ClientHello fragmentation.
 The report separates each source/binary and the physical Android UID checks.
-UDP noise and Linux TPROXY remain deferred. These additions require a new exact
+The owner expanded the release scope on 2026-10-11 to include FinalMask UDP noise and Linux TPROXY. These additions require a new exact
 release candidate and SDK pin. Rare Hysteria UDP timeouts remain recorded; a
 sequence diagnostic reproduces a missing echo on the original baseline too,
 without establishing the exact downstream cause. The older device results below are not evidence

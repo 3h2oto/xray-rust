@@ -6,8 +6,8 @@ below retain their original runtime identities and historical limits.
 
 The owner-approved [2026-10-10 issue plan](benchmarks/results/2026-10-10-pr42-issues/README.md)
 adds #53 rebind/budgets then carrier options, #51 optional flow admission and
-#52 ClientHello fragmentation in this draft. UDP noise and #47 TPROXY are
-explicitly outside this implementation cycle. See the [configuration contract](config-compatibility.md)
+#52 ClientHello fragmentation in this draft. UDP noise and #47 TPROXY were initially deferred; on 2026-10-11 the owner
+required both before release. Both are being validated in the release branch. See the [configuration contract](config-compatibility.md)
 for supported Xray spellings and bounded unsupported cases.
 
 Further SS2022 UDP diagnosis was deferred by the owner on 2026-10-04. Continue

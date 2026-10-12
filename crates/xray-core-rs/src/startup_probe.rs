@@ -802,6 +802,7 @@ mod https_tests {
                     security: StreamSecurity::None,
                     quic_params: None,
                     tcp_fragment: None,
+                    udp_noise: None,
                     socket_options: None,
                 },
                 settings: OutboundSettings::Freedom,
