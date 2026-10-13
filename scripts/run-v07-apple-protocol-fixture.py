@@ -112,6 +112,14 @@ def reserve_udp(bind):
         return sock.getsockname()[1]
 
 
+def loopback_outbound():
+    # Backends bind IPv4 loopback. Darwin's automatic dual-stack UDP port
+    # allocation can overlap an IPv4 listener; replies then reach that listener
+    # instead of Xray (#56). Keep both ends in the same address family.
+    return {"tag": "echo", "protocol": "freedom", "sendThrough": "127.0.0.1", "settings": {
+        "redirect": "127.0.0.1:0", "finalRules": [{"action": "allow", "ip": ["127.0.0.0/8"]}]}}
+
+
 def write_fixtures(root, bind, tcp_port, udp_port, dns_port, protocol="both", port=None, mode="smoke", probe_host="v07-probe.test"):
     if protocol in ("v08", "trojan", "shadowsocks2022", "vmess"):
         return write_client_fixtures(root, bind, tcp_port, udp_port, dns_port, protocol, port, mode, probe_host)
@@ -154,8 +162,7 @@ def write_fixtures(root, bind, tcp_port, udp_port, dns_port, protocol="both", po
         ],
         "outbounds": [
             {"tag": "blocked", "protocol": "blackhole"},
-            {"tag": "echo", "protocol": "freedom", "settings": {
-                "redirect": "127.0.0.1:0", "finalRules": [{"action": "allow", "ip": ["127.0.0.0/8"]}]}},
+            loopback_outbound(),
         ],
         "routing": {"rules": [{"type": "field", "ip": ["198.51.100.0/24", "2001:db8::/32"],
                                  "outboundTag": "echo"}]},
@@ -256,7 +263,7 @@ def write_client_fixtures(root, bind, tcp_port, udp_port, dns_port, protocol, po
         cases.append({"format": fmt, "text": text, "serverAddress": bind, "configJSON": json.dumps(config)})
     server = {"log": {"loglevel": "warning"}, "inbounds": inbounds,
               "outbounds": [{"tag": "blocked", "protocol": "blackhole"},
-                            {"tag": "echo", "protocol": "freedom", "settings": {"redirect": "127.0.0.1:0", "finalRules": [{"action": "allow", "ip": ["127.0.0.0/8"]}]}}],
+                            loopback_outbound()],
               "routing": {"rules": [{"type": "field", "ip": ["198.51.100.0/24", "2001:db8::/32"], "outboundTag": "echo"}]}}
     (root / "server.json").write_text(json.dumps(server, indent=2) + "\n")
     (root / "v07-probe.json").write_text(json.dumps({"cases": cases, "tcpPort": tcp_port, "udpPort": udp_port, "mode": mode, "probeHost": probe_host}, indent=2) + "\n")
