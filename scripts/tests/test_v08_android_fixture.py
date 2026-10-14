@@ -52,6 +52,33 @@ class AndroidFixtureTests(unittest.IsolatedAsyncioTestCase):
                 envelope = json.loads((root / "v07-probe.json").read_text())
                 self.assertNotIn("sendThrough", json.dumps(envelope))
 
+    def test_direct_targets_remove_redirect_and_ipv4_source_binding(self):
+        for protocol in ("both", "wireguard", "hysteria2"):
+            with self.subTest(protocol=protocol), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                with patch.object(FIXTURE.fixture, "openssl", return_value=b"k" * 32), \
+                     patch.object(FIXTURE.fixture, "reserve_udp", side_effect=(41001, 41002)):
+                    FIXTURE.original_write(root, "192.0.2.1", 42001, 42002, 42003,
+                                           protocol=protocol, direct_targets=True)
+                server = json.loads((root / "server.json").read_text())
+                echo = next(x for x in server["outbounds"] if x["tag"] == "echo")
+                self.assertNotIn("sendThrough", echo)
+                self.assertNotIn("redirect", echo["settings"])
+                self.assertEqual(echo["settings"]["finalRules"], [{"action": "allow", "ip": [
+                    "198.51.100.7/32", "198.51.100.53/32", "2001:db8::7/128"]}])
+                envelope = json.loads((root / "v07-probe.json").read_text())
+                for case in envelope["cases"]:
+                    client = json.loads(case["configJSON"])
+                    self.assertIn("2001:db8::/32", client["routing"]["rules"][1]["ip"])
+                    self.assertNotIn("sendThrough", json.dumps(client))
+
+    def test_direct_targets_reject_v08_instead_of_redirecting_synthetic_addresses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "require WireGuard or Hysteria"):
+                FIXTURE.original_write(Path(directory), "192.0.2.1", 42001, 42002, 42003,
+                                       protocol="vmess", direct_targets=True)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
     async def test_delayed_udp_reply_preserves_nonce_and_waits(self):
         response_ready = asyncio.Event()
         sent = []
