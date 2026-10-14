@@ -2,6 +2,7 @@ import asyncio
 import importlib.util
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -30,6 +31,27 @@ class Writer:
 
 
 class AndroidFixtureTests(unittest.IsolatedAsyncioTestCase):
+    def test_generated_backends_use_ipv4_loopback_without_changing_client_routes(self):
+        # Cover both generator branches inherited by Android and Apple. The
+        # synthetic IPv6 destination must still reach the IPv4-only backend;
+        # source binding belongs to the server, never the mobile client.
+        for protocol in ("both", "vmess"):
+            with self.subTest(protocol=protocol), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                with patch.object(FIXTURE.fixture, "openssl", return_value=b"k" * 32), \
+                     patch.object(FIXTURE.fixture, "reserve_udp", side_effect=(41001, 41002)):
+                    FIXTURE.original_write(root, "192.0.2.1", 42001, 42002, 42003,
+                                           protocol=protocol, port=41004 if protocol == "vmess" else None)
+                server = json.loads((root / "server.json").read_text())
+                echo = next(x for x in server["outbounds"] if x["tag"] == "echo")
+                self.assertEqual(echo["sendThrough"], "127.0.0.1")
+                self.assertEqual(echo["settings"]["redirect"], "127.0.0.1:0")
+                self.assertEqual(echo["settings"]["finalRules"],
+                                 [{"action": "allow", "ip": ["127.0.0.0/8"]}])
+                self.assertIn("2001:db8::/32", server["routing"]["rules"][0]["ip"])
+                envelope = json.loads((root / "v07-probe.json").read_text())
+                self.assertNotIn("sendThrough", json.dumps(envelope))
+
     async def test_delayed_udp_reply_preserves_nonce_and_waits(self):
         response_ready = asyncio.Event()
         sent = []
