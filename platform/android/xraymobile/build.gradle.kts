@@ -1,6 +1,5 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
 }
 
 val xrayFfiAndroidDir = providers.environmentVariable("XRAY_FFI_ANDROID_DIR")
