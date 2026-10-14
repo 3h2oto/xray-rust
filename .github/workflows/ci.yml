@@ -394,6 +394,9 @@ jobs:
           python3 scripts/tests/verify-wireguard-reference.test.py
           bash scripts/check-native-wireguard-interop.sh
 
+      - name: Verify WireGuard fixture UDP source-port reuse in an isolated network
+        run: bash scripts/check-wireguard-direct-fixture.sh
+
   rc-interop:
     if: needs.release-metadata.outputs.run_release_gates == 'true'
     needs: release-metadata
