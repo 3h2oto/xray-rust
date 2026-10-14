@@ -12,7 +12,7 @@ below. Prebuilt, versioned AAR and Maven release bundles are published from
 ## Prerequisites
 
 - JDK 17 or newer;
-- Android SDK platform 35;
+- Android SDK platform 35 and Build Tools 36.0.0;
 - Android SDK CMake 3.22.1;
 - Android NDK 26.3.11579264;
 - Rust Android targets for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`.
@@ -22,6 +22,12 @@ Check the complete host setup:
 ```sh
 scripts/check-mobile-toolchains.sh --android
 ```
+
+The wrapper pins Gradle 9.8.0. Both Android plugins use AGP 9.4.1 and
+[AGP built-in Kotlin](https://developer.android.com/build/migrate-to-built-in-kotlin),
+with Kotlin 2.4.20 pinned on the buildscript classpath. Do not apply the legacy
+`org.jetbrains.kotlin.android` plugin alongside built-in Kotlin. Update the
+wrapper checksums, dependency verification metadata and toolchain guards together.
 
 ## Build the AAR
 

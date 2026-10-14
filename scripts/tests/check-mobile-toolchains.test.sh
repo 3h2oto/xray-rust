@@ -124,7 +124,7 @@ test_android_adapter_verifies_packaged_native_alignment() {
 
   local root_build="$REPOSITORY_ROOT/platform/android/build.gradle.kts"
   if ! grep -Fq \
-    'id("org.jetbrains.kotlin.android") version "2.2.21"' \
+    'classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.20")' \
     "$root_build"; then
     echo "Android build is not pinned to the supported Kotlin Gradle plugin" >&2
     return 1

@@ -739,6 +739,7 @@ jobs:
           # Android bin directory on PATH.
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
             "platforms;android-35" \
+            "build-tools;36.0.0" \
             "ndk;26.3.11579264" \
             "cmake;3.22.1"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.3.11579264" >> "$GITHUB_ENV"
@@ -790,9 +791,9 @@ jobs:
 
       - name: Verify Gradle wrapper JAR
         run: |
-          echo "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172  platform/android/gradle/wrapper/gradle-wrapper.jar" | sha256sum --check -
+          echo "238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5  platform/android/gradle/wrapper/gradle-wrapper.jar" | sha256sum --check -
           grep -Fxq \
-            'distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.2-bin.zip' \
+            'distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.0-bin.zip' \
             platform/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Verify vendored crate provenance and exact patch set
@@ -804,7 +805,7 @@ jobs:
             platform/android/gradle/verification-metadata.xml \
             --online
           grep -Fxq \
-            'distributionSha256Sum=7197a12f450794931532469d4ff21a59ea2c1cd59a3ec3f89c035c3c420a6999' \
+            'distributionSha256Sum=bafd5ce9cfaea0fbccfdc8439a1ac42fbd4cd9c89dc9a988228d8a2639a58e6c' \
             platform/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Audit RustSec advisories
