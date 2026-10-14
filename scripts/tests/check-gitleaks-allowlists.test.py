@@ -24,6 +24,26 @@ ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence i
 
 
 class EvidenceAllowlists(unittest.TestCase):
+    def test_issue56_digest_exceptions_are_narrow(self):
+        base = "docs/device-results/2026-10-13-issue56/"
+        paths = ("baseline-apks.json", "android-independent-fixed.json",
+                 "android-independent-wifi.json", "android-socks-observe.json")
+        reviewed = {base + name: (ROOT / base / name).read_text() for name in paths}
+        self.assertEqual(self.scan(reviewed), set())
+        other = "e79a0029cc782ff8166c708f8c911ef39de33563b71a30df2cd2ff1d63d799ab"
+        self.assertEqual(self.scan({path: json.dumps({"xray": other}) for path in reviewed}),
+                         {(path, "jfrog-identity-token") for path in reviewed})
+        synthetic = "ABcdeF01234" + "GHijk56789lMno"
+        self.assertEqual(self.scan({path: json.dumps({"api_key": synthetic}) for path in reviewed}),
+                         {(path, "generic-api-key") for path in reviewed})
+        baseline = json.loads(reviewed[base + paths[0]])
+        digests = list(baseline[0]["nativeLibraries"].values())
+        digests.append(json.loads(reviewed[base + paths[1]])["plan"]["sha256"]["xray-android-control"])
+        unreviewed = {f"unreviewed-{i}.json": json.dumps({"xray": digest})
+                      for i, digest in enumerate(digests)}
+        self.assertEqual(self.scan(unreviewed),
+                         {(path, "jfrog-identity-token") for path in unreviewed})
+
     def test_v08_final_device_digest_exceptions_are_narrow(self):
         base = "docs/device-results/2026-10-12-v08-candidate/"
         paths = (

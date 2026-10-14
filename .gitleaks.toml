@@ -3,6 +3,29 @@ title = "xray-rust secret scanning"
 [extend]
 useDefault = true
 
+[[allowlists]]
+description = "Rehashed unchanged Android Rust/JNI library digests for issue 56"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = [
+  '''^420e35d063e43005fd8a174894c7fdbf29197b56bcb6e802a04fb7743e52c884$''',
+  '''^05edc946cd715c7064e0f92723b7ceb4e799508b8afabd77a6b4008cccc422e8$''',
+]
+paths = ['''^docs/device-results/2026-10-13-issue56/baseline-apks\.json$''']
+
+
+[[allowlists]]
+description = "Rehashed pinned Android Xray reference executable for issue 56"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^8583ce78c9093fde0ae5bb58afedd4db88c038ceb3c194c9b9a4ed5893a80fe5$''']
+paths = [
+  '''^docs/device-results/2026-10-13-issue56/android-independent-fixed\.json$''',
+  '''^docs/device-results/2026-10-13-issue56/android-independent-wifi\.json$''',
+  '''^docs/device-results/2026-10-13-issue56/android-socks-observe\.json$''',
+]
 
 # These v0.8 exceptions were reviewed in 1388c613971c8785f22107e2fac6be85f956e388.
 # CI scans --all, so main also needs their exact path/value/rule scope while
