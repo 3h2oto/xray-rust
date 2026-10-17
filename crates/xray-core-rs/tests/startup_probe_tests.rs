@@ -239,6 +239,165 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
 }
 
 #[tokio::test]
+async fn preflight_probe_does_not_bind_listeners_and_keeps_core_created() {
+    let occupied = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let mut config = config_with_outbounds(vec![freedom("direct")], Some("direct"));
+    config.inbounds[0].port = occupied.local_addr().unwrap().port();
+    let addr = spawn_http_status_once(204, "/health").await;
+    let mut core = Core::with_runtime_dependencies(
+        config,
+        Arc::new(StaticDnsResolver {
+            domain: "probe.test",
+            addr,
+        }),
+        Arc::new(TransportDialer::system().unwrap()),
+    )
+    .unwrap()
+    .with_startup_probe(StartupProbeOptions {
+        url: probe_url(addr),
+        timeout: Duration::from_secs(2),
+        outbound_tag: Some("direct".to_owned()),
+    });
+
+    core.preflight_startup_probe().await.unwrap();
+    assert_eq!(core.state(), CoreState::Created);
+    assert!(core.inbound_addr(Some("socks-in")).is_none());
+    drop(occupied);
+    core.set_startup_probe(None);
+    // The one-shot probe server has already exited: start must not probe again.
+    core.start().await.unwrap();
+    assert!(matches!(
+        core.preflight_startup_probe().await,
+        Err(CoreError::AlreadyRunning)
+    ));
+    core.stop().await.unwrap();
+    assert!(matches!(
+        core.preflight_startup_probe().await,
+        Err(CoreError::AlreadyStopped)
+    ));
+}
+
+#[tokio::test]
+async fn preflight_probe_uses_original_tun_config_and_static_only_routed_dns() {
+    let addr = spawn_http_status_once(204, "/health").await;
+    let (dns_server, dns_handle) = spawn_udp_dns_a_once(Ipv4Addr::LOCALHOST).await;
+    let mut config = config_with_outbounds(vec![freedom("direct")], Some("direct"));
+    config.inbounds[0].protocol = InboundProtocol::Tun;
+    config.dns.query_strategy = DnsQueryStrategy::UseIpv4;
+    config.dns.servers = vec![DnsServerConfig::Ip(dns_server)];
+    let mut core = Core::with_tun_runtime_options(
+        config,
+        TunRuntimeOptions {
+            dns_bootstrap: DnsBootstrapMode::StaticOnly,
+            ..TunRuntimeOptions::default()
+        },
+    )
+    .unwrap()
+    .with_startup_probe(StartupProbeOptions {
+        url: probe_url(addr),
+        timeout: Duration::from_secs(2),
+        outbound_tag: None,
+    });
+    core.preflight_startup_probe().await.unwrap();
+    assert_eq!(core.state(), CoreState::Created);
+    assert!(core.inbound_addr(None).is_none());
+    core.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), dns_handle)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn preflight_probe_failure_and_timeout_leave_core_unstarted() {
+    for (addr, timed_out) in [
+        (spawn_http_status_once(503, "/health").await, false),
+        (spawn_stalled_http_once().await, true),
+    ] {
+        let mut core = Core::with_runtime_dependencies(
+            config_with_outbounds(vec![freedom("direct")], Some("direct")),
+            Arc::new(StaticDnsResolver {
+                domain: "probe.test",
+                addr,
+            }),
+            Arc::new(TransportDialer::system().unwrap()),
+        )
+        .unwrap()
+        .with_startup_probe(StartupProbeOptions {
+            url: probe_url(addr),
+            timeout: Duration::from_millis(100),
+            outbound_tag: None,
+        });
+        let error = core.preflight_startup_probe().await.unwrap_err();
+        if timed_out {
+            assert!(matches!(
+                error,
+                CoreError::StartupProbe(StartupProbeError::Timeout { .. })
+            ));
+        } else {
+            assert!(matches!(
+                error,
+                CoreError::StartupProbe(StartupProbeError::HttpStatus { status: 503, .. })
+            ));
+        }
+        assert_eq!(core.state(), CoreState::Created);
+        assert!(core.inbound_addr(None).is_none());
+        core.stop().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn preflight_probe_cancels_promptly_and_rejects_late_calls() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let mut core = Core::new(config_with_outbounds(
+        vec![freedom("direct")],
+        Some("direct"),
+    ))
+    .unwrap()
+    .with_startup_probe(StartupProbeOptions {
+        url: format!("http://{addr}/health"),
+        timeout: Duration::from_secs(60),
+        outbound_tag: None,
+    });
+    let (probe, ()) = tokio::join!(core.preflight_startup_probe(), async {
+        let (_stream, _) = tokio::time::timeout(Duration::from_secs(2), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        core.cancel_outbound_probes();
+    });
+    assert!(matches!(probe, Err(CoreError::StartupProbeCancelled)));
+    assert_eq!(core.state(), CoreState::Created);
+    assert!(matches!(
+        core.preflight_startup_probe().await,
+        Err(CoreError::StartupProbeCancelled)
+    ));
+    core.stop().await.unwrap();
+}
+
+#[tokio::test]
+async fn preflight_without_probe_is_noop_and_legacy_start_still_probes() {
+    let mut core = Core::new(config_with_outbounds(
+        vec![freedom("direct")],
+        Some("direct"),
+    ))
+    .unwrap();
+    core.preflight_startup_probe().await.unwrap();
+    assert_eq!(core.state(), CoreState::Created);
+    let addr = spawn_http_status_once(204, "/health").await;
+    core.set_startup_probe(Some(StartupProbeOptions {
+        url: format!("http://{addr}/health"),
+        timeout: Duration::from_secs(2),
+        outbound_tag: None,
+    }));
+    // Lifecycle cancellation before start must not disable the legacy probe.
+    core.cancel_outbound_probes();
+    core.start().await.unwrap();
+    core.stop().await.unwrap();
+}
+
+#[tokio::test]
 async fn startup_probe_succeeds_for_http_2xx_response() {
     let addr = spawn_http_status_once(204, "/health").await;
     let resolver = Arc::new(StaticDnsResolver {

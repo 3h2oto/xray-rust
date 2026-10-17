@@ -30,7 +30,7 @@ use xray_tun::TunTcpSlowFlowKind;
 use zeroize::Zeroize;
 
 pub const XRAY_FFI_ABI_MAJOR: u32 = 1;
-pub const XRAY_FFI_ABI_MINOR: u32 = 11;
+pub const XRAY_FFI_ABI_MINOR: u32 = 12;
 
 pub const XRAY_FFI_CAPABILITY_CONFIG_WARNINGS: u64 = 1 << 0;
 pub const XRAY_FFI_CAPABILITY_GEODATA_SEARCH: u64 = 1 << 1;
@@ -58,6 +58,7 @@ pub const XRAY_FFI_CAPABILITY_VMESS_OUTBOUND: u64 = 1 << 21;
 pub const XRAY_FFI_CAPABILITY_OUTBOUND_PROBE: u64 = 1 << 22;
 pub const XRAY_FFI_CAPABILITY_HYSTERIA_STREAM_LIMITS: u64 = 1 << 23;
 pub const XRAY_FFI_CAPABILITY_TUN_ADMISSION: u64 = 1 << 24;
+pub const XRAY_FFI_CAPABILITY_STARTUP_PROBE_PREFLIGHT: u64 = 1 << 25;
 
 pub const XRAY_FFI_CAPABILITIES: u64 = XRAY_FFI_CAPABILITY_CONFIG_WARNINGS
     | XRAY_FFI_CAPABILITY_GEODATA_SEARCH
@@ -83,7 +84,8 @@ pub const XRAY_FFI_CAPABILITIES: u64 = XRAY_FFI_CAPABILITY_CONFIG_WARNINGS
     | XRAY_FFI_CAPABILITY_VMESS_OUTBOUND
     | XRAY_FFI_CAPABILITY_OUTBOUND_PROBE
     | XRAY_FFI_CAPABILITY_HYSTERIA_STREAM_LIMITS
-    | XRAY_FFI_CAPABILITY_TUN_ADMISSION;
+    | XRAY_FFI_CAPABILITY_TUN_ADMISSION
+    | XRAY_FFI_CAPABILITY_STARTUP_PROBE_PREFLIGHT;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1608,8 +1610,10 @@ pub unsafe extern "C" fn xray_core_rebind_hysteria(
 }
 
 /// Cancels current and future on-demand probes before exclusive teardown
-/// (ABI 1.9, `OUTBOUND_PROBE`). Nonblocking, idempotent, and a no-op before
-/// start or when no config is loaded. Normal traffic and health are unaffected.
+/// (ABI 1.9, `OUTBOUND_PROBE`). Nonblocking, idempotent, and a no-op
+/// when no config is loaded. Since ABI 1.12 this also cancels startup-probe
+/// preflights on a loaded core before start. Normal traffic, health and the
+/// legacy startup probe inside `xray_core_start` are unaffected.
 /// Creating a new handle and loading its config enables probes again.
 ///
 /// # Safety
@@ -1836,6 +1840,43 @@ unsafe fn xray_core_snapshot_json_inner(
             written,
             error,
         )
+    }
+}
+
+/// Runs the configured startup probe on a loaded, not-yet-started core
+/// (ABI 1.12, `STARTUP_PROBE_PREFLIGHT`). No listeners, TUN tasks or fd packet
+/// I/O are started. The original config and runtime DNS policy are retained.
+/// With no configured probe this succeeds without network activity.
+/// Success and failure leave the core unstarted and do not consume the probe:
+/// a later `xray_core_start` still runs it. VPN hosts should use a separate
+/// data-path core without a startup probe after this preflight succeeds.
+///
+/// # Safety
+///
+/// `handle` must be null or a live handle. This shared call may overlap
+/// `xray_core_cancel_outbound_probes`, but must be drained before lifecycle
+/// calls or free. Do not call from a runtime worker. If `error` is non-null,
+/// it must point to an initialized, exclusively accessible library-owned
+/// error pointer or null.
+#[no_mangle]
+pub unsafe extern "C" fn xray_core_preflight_startup_probe(
+    handle: *mut XrayCoreHandle,
+    error: *mut *mut XrayError,
+) -> XrayStatus {
+    unsafe {
+        ffi_result_status(error, || {
+            clear_error(error);
+            let handle = shared_handle(handle, error)?;
+            let core = loaded_core(handle, error)?;
+            handle
+                .runtime
+                .block_on(core.preflight_startup_probe())
+                .map_err(|source| {
+                    set_error(error, XrayStatus::RuntimeError, source.to_string());
+                    XrayStatus::RuntimeError
+                })?;
+            Ok(XrayStatus::Ok)
+        })
     }
 }
 

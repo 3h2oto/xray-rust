@@ -66,6 +66,10 @@ private final class ProtocolDeviceProbe: ObservableObject {
     private var label = "setup"
 
     func run(update: (String) -> Void) async {
+        if ProcessInfo.processInfo.environment["XRAY_STARTUP_PROBE_DEVICE_CHECK"] == "1" {
+            await XrayStartupProbeDeviceCheck().run(update: update)
+            return
+        }
         let priorIdleTimer = UIApplication.shared.isIdleTimerDisabled
         UIApplication.shared.isIdleTimerDisabled = true
         defer { UIApplication.shared.isIdleTimerDisabled = priorIdleTimer }

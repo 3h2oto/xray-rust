@@ -8,7 +8,7 @@ source of truth for declarations and enum values.
 ## ABI version
 
 Call `xray_ffi_version_major()` and `xray_ffi_version_minor()` before creating a
-handle. The current ABI version is `1.11`. The checked-in Swift and JNI adapters
+handle. The current ABI version is `1.12`. The checked-in Swift and JNI adapters
 reject any major other than `1` and require minor `1` or newer. Their selector
 and health methods require the corresponding ABI 1.2 capability bits; their
 connection-management methods require the ABI 1.3 capability bit, and routing
@@ -20,6 +20,7 @@ Hysteria carrier rebind requires minor >=7 and `HYSTERIA2_OUTBOUND`.
 Hysteria stream limits require minor >=10 and `HYSTERIA_STREAM_LIMITS` (bit 23).
 TUN flow admission requires minor >=11 and `TUN_ADMISSION` (bit 24).
 The on-demand outbound probe requires minor >=9 and `OUTBOUND_PROBE`.
+Startup-probe preflight requires minor >=12 and `STARTUP_PROBE_PREFLIGHT` (bit 25).
 
 An incompatible function signature, enum representation, ownership rule, or
 required struct layout requires a major version change. Consumers should
@@ -126,7 +127,11 @@ requires ABI 1.10 and the new capability. Rust hosts set
    - TUN runtime profile.
 5. Call `xray_core_load_config_json` exactly once successfully.
 6. Read `xray_core_config_warnings` and surface non-empty diagnostics.
-7. Call `xray_core_start`.
+7. Optionally call `xray_core_preflight_startup_probe` before changing host network
+   settings. It uses the loaded config's startup probe and DNS policy without
+   binding listeners or starting TUN I/O. Failure leaves host settings untouched.
+   The probe is not consumed: when using a separate data-path handle, omit its
+   startup probe to avoid running it twice. Call `xray_core_start` on that handle.
 8. Use the packet, statistics, diagnostic-event, selector-override,
    outbound-snapshot, and connection-management APIs.
 9. Call `xray_core_stop`.
@@ -238,7 +243,8 @@ failure_kind, http_status, error)`. It lets a host measure one outbound when its
 own scheduler decides, for example a VPN tunnel heartbeat with immediate
 retries or a check after the device wakes. The configured observatory remains
 schedule-driven with a fixed 5-second probe timeout, and the startup probe runs
-only inside `xray_core_start` without reporting its delay. Bits 19–21 and ABI
+inside `xray_core_start` or explicitly through preflight without reporting its
+delay. Bits 19–21 and ABI
 1.8 remain reserved for the separate v0.8 client-protocol branch, so merging
 that work later cannot reinterpret the probe capability.
 
@@ -276,8 +282,10 @@ log lines never contain the URL host, path, query, or transport error strings.
 `xray_core_cancel_outbound_probes(handle, error)` is a nonblocking shared
 teardown step in the same capability. It cancels all current and future probes
 on that running core. Cancellation returns `RUNTIME_ERROR` with zero outputs,
-without publishing a health failure. It is idempotent and a no-op before start
-or before config load. Create a new handle and load its config to enable probes again. Raw C hosts must
+without publishing a health failure. It is idempotent and a no-op before config
+load. Since ABI 1.12 it also cancels current and future startup-probe preflights
+on an unstarted core; the legacy probe inside `xray_core_start` is unaffected.
+Create a new handle and load its config to enable probes again. Raw C hosts must
 cancel, drain shared callers, then acquire exclusive access for stop/load/free;
 cancellation alone does not make lifecycle calls safe to overlap a probe.
 

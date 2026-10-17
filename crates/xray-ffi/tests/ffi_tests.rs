@@ -10,9 +10,10 @@ use xray_ffi::{
     xray_core_close_connection, xray_core_config_warnings, xray_core_connection_snapshot_json,
     xray_core_free, xray_core_load_config_json, xray_core_new,
     xray_core_outbound_accounting_snapshot_json, xray_core_outbound_health_snapshot_json,
-    xray_core_outbound_selection_snapshot_json, xray_core_probe_outbound_url,
-    xray_core_replace_routing_policy_json, xray_core_routing_policy_snapshot_json,
-    xray_core_set_dns_bootstrap_mode, xray_core_set_file_logging, xray_core_set_geodata_search_dir,
+    xray_core_outbound_selection_snapshot_json, xray_core_preflight_startup_probe,
+    xray_core_probe_outbound_url, xray_core_replace_routing_policy_json,
+    xray_core_routing_policy_snapshot_json, xray_core_set_dns_bootstrap_mode,
+    xray_core_set_file_logging, xray_core_set_geodata_search_dir,
     xray_core_set_geodata_search_dir_exclusive, xray_core_set_outbound_selector_override,
     xray_core_set_socket_protect_callback, xray_core_set_startup_probe,
     xray_core_set_tun_collect_tcp_timings, xray_core_set_tun_fd, xray_core_set_tun_runtime_profile,
@@ -649,7 +650,8 @@ fn ffi_reports_exact_current_capabilities() {
         | xray_ffi::XRAY_FFI_CAPABILITY_VMESS_OUTBOUND
         | XRAY_FFI_CAPABILITY_OUTBOUND_PROBE
         | xray_ffi::XRAY_FFI_CAPABILITY_HYSTERIA_STREAM_LIMITS
-        | xray_ffi::XRAY_FFI_CAPABILITY_TUN_ADMISSION;
+        | xray_ffi::XRAY_FFI_CAPABILITY_TUN_ADMISSION
+        | xray_ffi::XRAY_FFI_CAPABILITY_STARTUP_PROBE_PREFLIGHT;
 
     assert_eq!(XRAY_FFI_CAPABILITIES, expected);
     assert_eq!(xray_ffi_capabilities(), expected);
@@ -1650,6 +1652,135 @@ fn ffi_startup_probe_setter_rejects_after_config_load() {
     );
 
     unsafe {
+        xray_core_free(core);
+    }
+}
+
+#[test]
+fn ffi_startup_probe_preflight_validates_handle_and_lifecycle() {
+    let mut err = std::ptr::null_mut();
+    unsafe {
+        assert_eq!(
+            xray_core_preflight_startup_probe(std::ptr::null_mut(), &mut err),
+            XrayStatus::NullArgument
+        );
+        let core = xray_core_new(&mut err);
+        assert_eq!(
+            xray_core_preflight_startup_probe(core, &mut err),
+            XrayStatus::CoreNotLoaded
+        );
+        let config = CString::new(client_config_with_freedom_outbound()).unwrap();
+        assert_eq!(
+            xray_core_load_config_json(core, config.as_ptr(), &mut err),
+            XrayStatus::Ok
+        );
+        assert_eq!(
+            xray_core_preflight_startup_probe(core, &mut err),
+            XrayStatus::Ok
+        );
+        assert_eq!(xray_core_start(core, &mut err), XrayStatus::Ok);
+        assert_eq!(
+            xray_core_preflight_startup_probe(core, &mut err),
+            XrayStatus::RuntimeError
+        );
+        assert_error(&mut err, XrayStatus::RuntimeError, "already running");
+        assert_eq!(xray_core_stop(core, &mut err), XrayStatus::Ok);
+        assert_eq!(
+            xray_core_preflight_startup_probe(core, &mut err),
+            XrayStatus::RuntimeError
+        );
+        assert_error(&mut err, XrayStatus::RuntimeError, "already stopped");
+        xray_core_free(core);
+    }
+}
+
+#[test]
+fn ffi_startup_probe_preflight_runs_without_binding_inbound() {
+    let occupied = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let server = spawn_startup_probe_server_once();
+    let url = CString::new(format!("http://{}/health", server.addr)).unwrap();
+    let config = CString::new(format!(r#"{{"inbounds":[{{"protocol":"socks","listen":"127.0.0.1","port":{}}}],"outbounds":[{{"protocol":"freedom"}}]}}"#, occupied.local_addr().unwrap().port())).unwrap();
+    let mut err = std::ptr::null_mut();
+    unsafe {
+        let core = xray_core_new(&mut err);
+        assert_eq!(
+            xray_core_set_startup_probe(core, url.as_ptr(), 2_000, std::ptr::null(), &mut err),
+            XrayStatus::Ok
+        );
+        assert_eq!(
+            xray_core_load_config_json(core, config.as_ptr(), &mut err),
+            XrayStatus::Ok
+        );
+        assert_eq!(
+            xray_core_preflight_startup_probe(core, &mut err),
+            XrayStatus::Ok,
+            "{}",
+            error_message(err)
+        );
+        server.wait();
+        // Preflight succeeded even though start cannot bind this port.
+        assert_eq!(xray_core_start(core, &mut err), XrayStatus::RuntimeError);
+        xray_error_free(err);
+        xray_core_free(core);
+    }
+}
+
+#[test]
+fn ffi_startup_probe_preflight_cancellation_drains_before_free() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = CString::new(format!("http://{}/health", listener.local_addr().unwrap())).unwrap();
+    let mut err = std::ptr::null_mut();
+    let core = unsafe { xray_core_new(&mut err) };
+    unsafe {
+        assert_eq!(
+            xray_core_set_startup_probe(core, url.as_ptr(), 60_000, std::ptr::null(), &mut err),
+            XrayStatus::Ok
+        );
+        let config = CString::new(client_config_with_freedom_outbound()).unwrap();
+        assert_eq!(
+            xray_core_load_config_json(core, config.as_ptr(), &mut err),
+            XrayStatus::Ok
+        );
+    }
+    let address = core as usize;
+    let (done_tx, done_rx) = mpsc::channel();
+    let worker = thread::spawn(move || unsafe {
+        let mut error = std::ptr::null_mut();
+        let status = xray_core_preflight_startup_probe(address as *mut _, &mut error);
+        let message = error_message(error);
+        xray_error_free(error);
+        done_tx.send((status, message)).unwrap();
+    });
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let _stream = loop {
+        match listener.accept() {
+            Ok((stream, _)) => break stream,
+            Err(error)
+                if error.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline =>
+            {
+                thread::sleep(Duration::from_millis(5))
+            }
+            Err(error) => panic!("preflight did not connect: {error}"),
+        }
+    };
+    unsafe {
+        assert_eq!(
+            xray_core_cancel_outbound_probes(core, &mut err),
+            XrayStatus::Ok
+        );
+    }
+    let (status, message) = done_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(status, XrayStatus::RuntimeError);
+    assert!(message.contains("cancelled"));
+    worker.join().unwrap();
+    unsafe {
+        assert_eq!(
+            xray_core_preflight_startup_probe(core, &mut err),
+            XrayStatus::RuntimeError
+        );
+        assert_error(&mut err, XrayStatus::RuntimeError, "cancelled");
+        assert_eq!(xray_core_stop(core, &mut err), XrayStatus::Ok);
         xray_core_free(core);
     }
 }

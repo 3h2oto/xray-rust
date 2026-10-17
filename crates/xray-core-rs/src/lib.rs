@@ -301,6 +301,8 @@ pub enum CoreError {
     AlreadyRunning,
     #[error("core is already stopped")]
     AlreadyStopped,
+    #[error("startup probe was cancelled")]
+    StartupProbeCancelled,
     #[error("no supported inbound found")]
     NoSupportedInbound,
     #[error(
@@ -444,6 +446,7 @@ pub struct Core {
     state: CoreState,
     shutdown: Shutdown,
     probe_shutdown: Shutdown,
+    startup_probe_shutdown: Shutdown,
     tun: Arc<TunEndpoint>,
     runtime: Option<RuntimeState>,
     dns_resolver: Arc<dyn DnsResolver>,
@@ -754,6 +757,7 @@ impl Core {
             state: CoreState::Created,
             shutdown,
             probe_shutdown: Shutdown::new(),
+            startup_probe_shutdown: Shutdown::new(),
             tun,
             runtime: None,
             dns_resolver: dns.destination,
@@ -875,16 +879,70 @@ impl Core {
         self.outbound_factory().rebind_wireguard()
     }
 
-    /// Cancels current and future on-demand probes on a running core.
+    /// Cancels current and future preflight probes, and on-demand probes on a running core.
     ///
     /// This shared, nonblocking teardown step lets hosts drain shared probe
     /// calls before taking their exclusive lifecycle lock. It leaves normal
     /// traffic and health state untouched. Creating a new core resets the latch;
-    /// calling this before start is a no-op.
+    /// this does not disable the legacy startup probe inside `start`.
     pub fn cancel_outbound_probes(&self) {
+        self.startup_probe_shutdown.signal();
         if self.state == CoreState::Running {
             self.probe_shutdown.signal();
         }
+    }
+
+    /// Runs the configured startup probe without binding listeners or starting TUN.
+    ///
+    /// Only a newly created core accepts this call. It retains the original
+    /// config (including TUN DNS restrictions), bootstrap policy, outbound and
+    /// dialer. Success and failure leave the core in `Created`; hosts must omit
+    /// the startup probe on the later data-path core to avoid probing twice.
+    /// `cancel_outbound_probes` cancels this call and rejects later preflights.
+    pub async fn preflight_startup_probe(&self) -> Result<(), CoreError> {
+        match self.state {
+            CoreState::Running => return Err(CoreError::AlreadyRunning),
+            CoreState::Stopped => return Err(CoreError::AlreadyStopped),
+            CoreState::Created => {}
+        }
+        let Some(options) = self.startup_probe.clone() else {
+            return Ok(());
+        };
+        let mut cancellation = self.startup_probe_shutdown.subscribe();
+        let has_tun = self
+            .config
+            .inbounds
+            .iter()
+            .any(|inbound| matches!(inbound.protocol, InboundProtocol::Tun));
+        let dns = self.runtime_dns_resolvers(&self.config, &self.outbound_router, has_tun);
+        self.runtime_logger
+            .debug(|| "Debug startupProbe preflight start".to_owned());
+        let result = tokio::select! {
+            biased;
+            _ = async {
+                while !*cancellation.borrow_and_update() {
+                    if cancellation.changed().await.is_err() {
+                        break;
+                    }
+                }
+            } => Err(CoreError::StartupProbeCancelled),
+            result = startup_probe::run_startup_probe(
+                self.outbound_router.as_ref(),
+                options,
+                dns.destination.as_ref(),
+                dns.bootstrap.as_ref(),
+                self.transport_dialer.as_ref(),
+            ) => result.map_err(CoreError::StartupProbe),
+        };
+        match &result {
+            Ok(()) => self
+                .runtime_logger
+                .debug(|| "Debug startupProbe preflight success".to_owned()),
+            Err(_) => self
+                .runtime_logger
+                .error(|| "Debug startupProbe preflight fail error=<redacted>".to_owned()),
+        }
+        result
     }
 
     /// Runs one host-requested HTTP(S) probe through a leaf outbound.
@@ -1298,6 +1356,7 @@ impl Core {
     }
 
     pub async fn stop(&mut self) -> Result<(), CoreError> {
+        self.startup_probe_shutdown.signal();
         self.probe_shutdown.signal();
         self.shutdown.signal();
         self.outbound_factory().close_sessions();

@@ -58,6 +58,7 @@ fn ffi_header_declares_lifecycle_error_and_tun_abi() {
         "XraySocketProtectCallback",
         "xray_core_set_socket_protect_callback",
         "xray_core_set_startup_probe",
+        "xray_core_preflight_startup_probe",
         "XrayTunFdPacketFormat",
         "XrayTunFdClosePolicy",
         "XrayTunRuntimeProfile",
@@ -96,6 +97,7 @@ fn ffi_header_declares_lifecycle_error_and_tun_abi() {
     assert!(header.contains("XRAY_FFI_CAPABILITY_CONNECTION_MANAGEMENT = 1 << 14"));
     assert!(header.contains("XRAY_FFI_CAPABILITY_ROUTING_POLICY_UPDATE = 1 << 15"));
     assert!(header.contains("XRAY_FFI_CAPABILITY_OUTBOUND_PROBE = 1 << 22"));
+    assert!(header.contains("XRAY_FFI_CAPABILITY_STARTUP_PROBE_PREFLIGHT = 1 << 25"));
     // The Rust enum, the JNI result carrier and the Swift mapping all rely on
     // these discriminants staying stable within ABI major 1.
     for (name, value) in [
@@ -373,16 +375,17 @@ fn apple_packet_pump_reuses_poll_storage_and_fails_outside_worker_queue() {
             "Apple IPv6 outer-route protection missing `{token}`"
         );
     }
-    let apply_network_settings = provider
-        .find("setTunnelNetworkSettings(")
-        .expect("Apple provider should apply packet-tunnel routes");
-    let start_runtime = provider[apply_network_settings..]
+    let network_settings_callback = provider
+        .find("let settingsCompletion: (Error?) -> Void")
+        .expect("Apple provider should complete network settings asynchronously");
+    let start_runtime = provider[network_settings_callback..]
         .find("let runtime = try self.makeRuntime(")
         .expect("Apple provider should start the runtime after applying routes");
     assert!(
         start_runtime > 0,
         "Apple core must start only after every bootstrap route is installed"
     );
+    assert!(provider.contains("completionHandler: settingsCompletion"));
     assert!(mobile_log.contains("XrayLogSanitizer.sanitize"));
 }
 
@@ -1177,6 +1180,7 @@ const EXPORTED_SYMBOLS: &[&str] = &[
     "xray_core_set_socket_protect_callback",
     "xray_core_set_file_logging",
     "xray_core_set_startup_probe",
+    "xray_core_preflight_startup_probe",
     "xray_core_set_tun_fd",
     "xray_core_set_tun_collect_tcp_timings",
     "xray_core_set_tun_runtime_profile",
@@ -1284,6 +1288,7 @@ static void use_xray_ffi_api(void) {
       XRAY_DNS_BOOTSTRAP_MODE_STATIC_ONLY,
       &error);
   (void)xray_core_load_config_json(handle, "{}", &error);
+  (void)xray_core_preflight_startup_probe(handle, &error);
   (void)xray_core_config_warnings(
       handle,
       message,
