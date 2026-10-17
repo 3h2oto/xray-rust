@@ -1154,6 +1154,11 @@
             <sha256 value="43ed0e36b353f41e5eb75cd756667c9e2df97cef06eb16066967158a1d034d2a" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="com.google.guava" name="guava-parent" version="33.4.0-jre">
+         <artifact name="guava-parent-33.4.0-jre.pom">
+            <sha256 value="3a499ed34a0d9ee0f1bcc39230021a1cd4e2f7dd0426ab6844f585465d41dcd7" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="com.google.guava" name="listenablefuture" version="9999.0-empty-to-avoid-conflict-with-guava">
          <artifact name="listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar">
             <sha256 value="b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2122,6 +2127,14 @@
             <sha256 value="cfe6fb1af3f7da01428ef4bf4e38e1c76637f4e108ac22f15dfe4c733df408d4" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="fus-statistics-gradle-plugin" version="2.4.21">
+         <artifact name="fus-statistics-gradle-plugin-2.4.21-gradle96.jar">
+            <sha256 value="44a07b9203eb2c75ceb2d33327f89b991f2d35095a96a0f1c224a012c5465367" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="fus-statistics-gradle-plugin-2.4.21.module">
+            <sha256 value="3090b4e873054cdc29991ae94c92fa45afb4c145d460441d803baf6ef165bbb8" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-build-statistics" version="2.2.21">
          <artifact name="kotlin-build-statistics-2.2.21.jar">
             <sha256 value="8dfdfb2b8f67fcdcc4cee3ef90a25af467ca295853b0ea019d0010acebd6f18a" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2136,6 +2149,14 @@
          </artifact>
          <artifact name="kotlin-build-statistics-2.4.20.pom">
             <sha256 value="184af9ac1aaf68d0c96875465e9d398926586d83119abbfe1be5979398b8916f" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-build-statistics" version="2.4.21">
+         <artifact name="kotlin-build-statistics-2.4.21.jar">
+            <sha256 value="f917249997fe48d1eb1204906b4cabc8230bf32a1d9fb385e52311acaa6ebc68" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-build-statistics-2.4.21.pom">
+            <sha256 value="4ac9fe3a27069f9ad87dc36ede15fc06335663d4ae46fac09a16bb090e16038c" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-build-tools-api" version="2.2.21">
@@ -2162,12 +2183,28 @@
             <sha256 value="e8cd9ffd7d0886ba1a1795cbf4a34a06681f184aa50f25686effeefb3c1f56f5" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-build-tools-api" version="2.4.21">
+         <artifact name="kotlin-build-tools-api-2.4.21.jar">
+            <sha256 value="c5cd6a49bd072b529ae10809111c16a7aa0f92147e95d288354017fd65799461" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-build-tools-api-2.4.21.pom">
+            <sha256 value="4b909e42d55242520278d5397eca1edd58921fe128942eeff95a6da279c2eb27" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-build-tools-compat" version="2.4.20">
          <artifact name="kotlin-build-tools-compat-2.4.20.jar">
             <sha256 value="937d2961fc0b957a50c3d85a14fcc1bd0585f2229164136895b623691660c9b4" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
          <artifact name="kotlin-build-tools-compat-2.4.20.pom">
             <sha256 value="f8e9f647a00bfbc237e3ddff3891b2d4e4a947611b949281658f836def304002" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-build-tools-compat" version="2.4.21">
+         <artifact name="kotlin-build-tools-compat-2.4.21.jar">
+            <sha256 value="9e71ba89b6d26e46a087d4f8b64bc2f0a774282ea779fc08b26527d0a80d4fe8" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-build-tools-compat-2.4.21.pom">
+            <sha256 value="9d9b4627d5b7bb8631457061275f21524d874b865550addec4f3b029d8265817" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-build-tools-cri-impl" version="2.4.0">
@@ -2184,6 +2221,14 @@
          </artifact>
          <artifact name="kotlin-build-tools-cri-impl-2.4.20.pom">
             <sha256 value="8af52efa886eed45c54d568b692e339b70ddc7c768bee9ab9c2d2f96ed8bb0e1" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-build-tools-cri-impl" version="2.4.21">
+         <artifact name="kotlin-build-tools-cri-impl-2.4.21.jar">
+            <sha256 value="d1849f9b98033f5333905409074ca90e6a0e17258cd0eb8befa47d795e695841" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-build-tools-cri-impl-2.4.21.pom">
+            <sha256 value="57f3c430dfec2e575bb1b64055412ace12d4ed5d9a02eb97a85dd47f53701ef1" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-build-tools-impl" version="2.2.21">
@@ -2210,6 +2255,14 @@
             <sha256 value="7a13ab2d818a5de92afa23004aa9baed99671bb48553b7098cf920fa785c3351" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-build-tools-impl" version="2.4.21">
+         <artifact name="kotlin-build-tools-impl-2.4.21.jar">
+            <sha256 value="3152b3e1fbaa4d48f3681734a2c0efc438359a48c8a3c5cac00d874670de1377" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-build-tools-impl-2.4.21.pom">
+            <sha256 value="6ef5cb90e2d8ea75faf9ec668d306b6be7628f11ebd41878a82cae3e17dbedfb" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-compiler-embeddable" version="2.2.21">
          <artifact name="kotlin-compiler-embeddable-2.2.21.jar">
             <sha256 value="9588fa696ac5507af764fd5660df6894185e12704ec1bc3f5cb772af4987f295" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2232,6 +2285,14 @@
          </artifact>
          <artifact name="kotlin-compiler-embeddable-2.4.20.pom">
             <sha256 value="269d98cc4c68670c11e4aeb404e1c7c6f31b782321908d7268ba25cd236d59b2" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-compiler-embeddable" version="2.4.21">
+         <artifact name="kotlin-compiler-embeddable-2.4.21.jar">
+            <sha256 value="ef19419c765e7ac8404465fa026ca8fc4dbb8a822de0fc79aa53c8dce29f1d02" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-compiler-embeddable-2.4.21.pom">
+            <sha256 value="e1620d2b18319cf7495dc67697ab03ba23a7d6d9da685285884a7a8aa08ae891" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-compiler-runner" version="2.2.21">
@@ -2258,6 +2319,14 @@
             <sha256 value="4566946280971fe8d67990ee83480af480e846590f325a40951f62657e26a40a" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-compiler-runner" version="2.4.21">
+         <artifact name="kotlin-compiler-runner-2.4.21.jar">
+            <sha256 value="75cd5956405697559e6925ebc5808449a2e12002d4f017275281ad3d4c0c7985" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-compiler-runner-2.4.21.pom">
+            <sha256 value="619d17c885321949eaa167af0842cad8f7aa83a4a9ca1051e5de04d11a6c0f40" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-daemon-client" version="2.2.21">
          <artifact name="kotlin-daemon-client-2.2.21.jar">
             <sha256 value="3ce2ca3c5d7bc7c87c4149ac2c593d21a791d6776229ae123db645a3017de814" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2280,6 +2349,14 @@
          </artifact>
          <artifact name="kotlin-daemon-client-2.4.20.pom">
             <sha256 value="37cff66ae34c924f0f738106eeb7234e7ace880f199de3362e993f4987025adc" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-daemon-client" version="2.4.21">
+         <artifact name="kotlin-daemon-client-2.4.21.jar">
+            <sha256 value="095903c4c4713bf91a562d226d7ba0464cf5424e76342d487deec494451ab29b" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-daemon-client-2.4.21.pom">
+            <sha256 value="c2f18065fa18f5e92eff14f34029e4f70052011070655120796adbce7167ad65" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-daemon-embeddable" version="2.2.21">
@@ -2306,6 +2383,14 @@
             <sha256 value="ca631ce7c7cc2a8ecb47d3462b429004c1cd3488437b3f739e35eafea2033bfb" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-daemon-embeddable" version="2.4.21">
+         <artifact name="kotlin-daemon-embeddable-2.4.21.jar">
+            <sha256 value="7b3ef24674e5bcffcadfc4e43202ea314194939ecbcdd90a4770b2f1b04e0d07" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-daemon-embeddable-2.4.21.pom">
+            <sha256 value="95236a3a7e9953545e2ff7c6dc0ea7ffeb27560000f20abe89dc53790fec3c7e" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin" version="2.2.21">
          <artifact name="kotlin-gradle-plugin-2.2.21-gradle813.jar">
             <sha256 value="b7a52865c6a5e160d2cf61e4d423ce44a6a20de0a6b23d03404b6d01a2811737" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2322,6 +2407,14 @@
             <sha256 value="8a88cf52de5fb9c829730b0f5aec1fcd35633e697871e256230f09903c74dd43" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin" version="2.4.21">
+         <artifact name="kotlin-gradle-plugin-2.4.21-gradle96.jar">
+            <sha256 value="d0a11912936c8801f1773a47e8fc51835a6ab568d73e4e1d188281955a7f575b" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-gradle-plugin-2.4.21.module">
+            <sha256 value="a412aecabbb40c7ed2fad5311d0114d4ca0e3a9690658ad3c4caed619e400d94" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-annotations" version="2.2.21">
          <artifact name="kotlin-gradle-plugin-annotations-2.2.21.jar">
             <sha256 value="3594c40c7005d044952f80f704172bb6fd1844241025194fb16bee6d45da2e5b" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2336,6 +2429,14 @@
          </artifact>
          <artifact name="kotlin-gradle-plugin-annotations-2.4.20.pom">
             <sha256 value="d903e1b1b633cdd7c85e557a4426b0c7b8584065a46fe626826a4da3790f945d" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-annotations" version="2.4.21">
+         <artifact name="kotlin-gradle-plugin-annotations-2.4.21.jar">
+            <sha256 value="5c386b0fa287584497b07d62af954e30d05907e6da867221124d0bb936989bbd" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-gradle-plugin-annotations-2.4.21.pom">
+            <sha256 value="b0f6b87a35d4be7ae06e554efdb261ea4bc5d59fa282c23ee28061d30805ddd6" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-api" version="2.2.21">
@@ -2357,6 +2458,14 @@
             <sha256 value="4bea3899dada541c1e482246b2573678eaedf611af7f1674ce0a17d5c3effdc0" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-api" version="2.4.21">
+         <artifact name="kotlin-gradle-plugin-api-2.4.21-gradle96.jar">
+            <sha256 value="43b8c73f3e4f123b1a5e4bc8e62bd9b258dfa84129e6564bebb03c5fada84d23" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-gradle-plugin-api-2.4.21.module">
+            <sha256 value="b8ae1c9ee5976145d4fd7925012e5699e2df5df7fe9613bac41d59404a58e815" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-idea" version="2.2.21">
          <artifact name="kotlin-gradle-plugin-idea-2.2.21.jar">
             <sha256 value="ec969c5f0b099f823846232238f9bd64f3d3741e62ea9050ad2e432fad79d0a0" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2373,6 +2482,14 @@
             <sha256 value="7a8c8d128782b4f46b5d831c7eda2513d871d321a483a43aadbe77f97224cb64" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-idea" version="2.4.21">
+         <artifact name="kotlin-gradle-plugin-idea-2.4.21.jar">
+            <sha256 value="086734484c7edf19a620ab1a617d097c40e03bc52602e77840ea5ebd6380e514" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-gradle-plugin-idea-2.4.21.module">
+            <sha256 value="ddd2bb8f319a7c468ba2fb5a404b795c69e066bd5ad2d565b47b86fa2a337606" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-idea-proto" version="2.2.21">
          <artifact name="kotlin-gradle-plugin-idea-proto-2.2.21.jar">
             <sha256 value="4b4be774efb9585af0fda180d33903d8272e497df7b81bb091fa9339ecda45bd" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2387,6 +2504,14 @@
          </artifact>
          <artifact name="kotlin-gradle-plugin-idea-proto-2.4.20.pom">
             <sha256 value="d059dace6e76f36808ce94e8588a603324716d07767bc874206036794ba3bd05" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-idea-proto" version="2.4.21">
+         <artifact name="kotlin-gradle-plugin-idea-proto-2.4.21.jar">
+            <sha256 value="4559d92c5c1758a3e1ec5728822b059b2eb4aebef13c701ee86c7688acf164d5" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-gradle-plugin-idea-proto-2.4.21.pom">
+            <sha256 value="3c6eff2166eb46a8474b7bcccaa7d1ca5074260c866cc4bb2ba3678216a7bc15" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugin-model" version="2.2.21">
@@ -2413,6 +2538,14 @@
             <sha256 value="70b071dc4074995076c97c749792ebcff69f10e636d1e2f2c68de0de023e0239" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-gradle-plugins-bom" version="2.4.21">
+         <artifact name="kotlin-gradle-plugins-bom-2.4.21.module">
+            <sha256 value="04f6a73a2c34217ac31599b8ed5ff24b85ebd410d32242eb27965c7b213f56c3" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-gradle-plugins-bom-2.4.21.pom">
+            <sha256 value="624c0c869b3fcf1665afec9c5c51a807be0a8c983931ebb188548ddcdb055780" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-klib-commonizer-api" version="2.2.21">
          <artifact name="kotlin-klib-commonizer-api-2.2.21.jar">
             <sha256 value="58bc451ce62ed6befd077ac107ea5f133443e74dd78cf3a4a48f868e61837e8b" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2427,6 +2560,14 @@
          </artifact>
          <artifact name="kotlin-klib-commonizer-api-2.4.20.pom">
             <sha256 value="b1edb50183d4549ad0fb449498535ab4186d491d86ad315e0187bcb9f9c7496d" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-klib-commonizer-api" version="2.4.21">
+         <artifact name="kotlin-klib-commonizer-api-2.4.21.jar">
+            <sha256 value="62ebe32fcf69600125b28388f0a80781276784d90e14d333bbd5080b4807220c" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-klib-commonizer-api-2.4.21.pom">
+            <sha256 value="186a53ce6f218e43472808dc32cab627e19c144df2517398794bdb53d2df14a0" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-klib-commonizer-embeddable" version="2.2.21">
@@ -2459,6 +2600,14 @@
          </artifact>
          <artifact name="kotlin-native-utils-2.4.20.pom">
             <sha256 value="453ba071c89165cbdfc877ca733a4f38c01fc2f4894e9a259d7651f1176cd80c" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-native-utils" version="2.4.21">
+         <artifact name="kotlin-native-utils-2.4.21.jar">
+            <sha256 value="e1858bf1fb5bbb1738c4fa0f9cfb502b911cabf313a5de4cae686d6c50d74814" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-native-utils-2.4.21.pom">
+            <sha256 value="9882156113d96f7911101a721cce2adefe2c8d9acc8844fb6397b8523538db37" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-reflect" version="1.6.10">
@@ -2523,6 +2672,14 @@
          </artifact>
          <artifact name="kotlin-script-runtime-2.4.20.pom">
             <sha256 value="dd0e3846b61a6d641300958cc52e4693cd7b47bd1d626505f383b2f9d23ade0e" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-script-runtime" version="2.4.21">
+         <artifact name="kotlin-script-runtime-2.4.21.jar">
+            <sha256 value="a658cf5902a1525a06c264a5e42b437e97a6679ddeef8ca641246f270cf6a013" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-script-runtime-2.4.21.pom">
+            <sha256 value="425d1683a903d085a1718122918242ad6ad0246c79283786697395e4d3a8c801" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-scripting-common" version="2.2.21">
@@ -2616,6 +2773,14 @@
             <sha256 value="afb28052ac6c3d605c0f661816ea653e073eb039682fed35bfa6cdc704c0911c" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-stdlib" version="2.4.21">
+         <artifact name="kotlin-stdlib-2.4.21.jar">
+            <sha256 value="bd8250210584cb659847dce9cda660f8e9906e5def7fbebcea93dc6dcb6a88a3" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-stdlib-2.4.21.module">
+            <sha256 value="03b0df67c0cd74a948a45c5b03c4bbcfb31ab9b9879fb380adf7c187b6594b7f" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-stdlib-common" version="1.9.20">
          <artifact name="kotlin-stdlib-common-1.9.20.module">
             <sha256 value="858828bc5191b9e602affa14e01d66489dafb08c4c18d2faee3cbed7ba7d9992" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2669,6 +2834,14 @@
             <sha256 value="29dd79ed2bc1e64f6bfd5ccf0c1336c6b6c11ee2a69e0c585e3fad2f45b5325d" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-tooling-core" version="2.4.21">
+         <artifact name="kotlin-tooling-core-2.4.21.jar">
+            <sha256 value="5fc5db083803232857408ed5c25bcc307c703b04bdef6cb2c34ebf4db611a622" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-tooling-core-2.4.21.pom">
+            <sha256 value="b26b1cb6480001519d4650586cdc6054ea2d2d486ff332431c543eb8f76f41ce" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-util-io" version="2.2.21">
          <artifact name="kotlin-util-io-2.2.21.jar">
             <sha256 value="266aa4026a106f59fcefc3f151768870af91cef15e4011fac0aa1f1f567d49f4" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2683,6 +2856,14 @@
          </artifact>
          <artifact name="kotlin-util-io-2.4.20.pom">
             <sha256 value="840f888f360f4395c0967e17620b96d8b0cf5180efe2a214fdabd4d66677665b" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-util-io" version="2.4.21">
+         <artifact name="kotlin-util-io-2.4.21.jar">
+            <sha256 value="5821175f24578ca8f1ef405bc982b3668f3f40f1a5dd28bb3283dd5215a922d1" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-util-io-2.4.21.pom">
+            <sha256 value="a16f898aa8c686dc0b83d556ac4adecfcadbb6662ca547fca7802bf536d6d3d3" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="kotlin-util-klib" version="2.2.21">
@@ -2701,6 +2882,14 @@
             <sha256 value="7fb051f47bbe01f318a1f434e2a7ed61a446fcc7a4d3ccb5a44c2b5105b0fd6b" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-util-klib" version="2.4.21">
+         <artifact name="kotlin-util-klib-2.4.21.jar">
+            <sha256 value="f01f79d54968941dfa83a525ae173be93460bb85b0bf2cc9ff06f6eb0864691e" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-util-klib-2.4.21.pom">
+            <sha256 value="97b59495de92c789c6963e4e70d5545ceccd2f0fab67d7ce72f7c5a87b948030" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
       <component group="org.jetbrains.kotlin" name="kotlin-util-klib-metadata" version="2.2.21">
          <artifact name="kotlin-util-klib-metadata-2.2.21.jar">
             <sha256 value="022b95a3dfed949d7c2e47820bcd9836ee057b721513f773361e4333f6c76f8c" origin="Canonical Maven repository (published sidecar verified)"/>
@@ -2715,6 +2904,14 @@
          </artifact>
          <artifact name="kotlin-util-klib-metadata-2.4.20.pom">
             <sha256 value="90c5c8092955a601898c74f7dae3945fb0d041d5191d009bab41d530f8402f4f" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.jetbrains.kotlin" name="kotlin-util-klib-metadata" version="2.4.21">
+         <artifact name="kotlin-util-klib-metadata-2.4.21.jar">
+            <sha256 value="a47f883b82fc3b99fe3d666498b22312628afb5cc1b9b26e8188175be2da6060" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="kotlin-util-klib-metadata-2.4.21.pom">
+            <sha256 value="a0f7f315c9f60b53458cc1e034a7c55e17619ce7db51db43efb7d3cdacbb5c6c" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.jetbrains.kotlin" name="swift-export-embeddable" version="2.2.21">
@@ -2803,6 +3000,14 @@
          </artifact>
          <artifact name="json-20240303.pom">
             <sha256 value="994baf5d89bf4caa5ce968e4c4eab135c8f9783ecf4d2b7b0e9d1c8a4ddf1e4f" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+      </component>
+      <component group="org.json" name="json" version="20260814">
+         <artifact name="json-20260814.jar">
+            <sha256 value="7dd2de1533e766e2b6c07d8194da85145ad313a167a4760050f5c9b6839604fe" origin="Canonical Maven repository (published sidecar verified)"/>
+         </artifact>
+         <artifact name="json-20260814.pom">
+            <sha256 value="61937e25d261f93d16e8d9f5ccdb1b700780ec1ccb4876444654736628c62095" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
       <component group="org.junit" name="junit-bom" version="5.10.2">
@@ -3007,11 +3212,6 @@
          </artifact>
          <artifact name="tensorflow-lite-metadata-0.2.0.pom">
             <sha256 value="0fe31326e83b7622cbcd9c75d467b291f01ffe3cc6e3e76651ac05a1c1c7a360" origin="Canonical Maven repository (published sidecar verified)"/>
-         </artifact>
-      </component>
-      <component group="com.google.guava" name="guava-parent" version="33.4.0-jre">
-         <artifact name="guava-parent-33.4.0-jre.pom">
-            <sha256 value="3a499ed34a0d9ee0f1bcc39230021a1cd4e2f7dd0426ab6844f585465d41dcd7" origin="Canonical Maven repository (published sidecar verified)"/>
          </artifact>
       </component>
    </components>
