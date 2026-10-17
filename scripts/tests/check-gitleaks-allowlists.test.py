@@ -24,6 +24,34 @@ ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence i
 
 
 class EvidenceAllowlists(unittest.TestCase):
+    def test_issue69_source_digest_exceptions_are_narrow(self):
+        paths = tuple(f"docs/device-results/2026-10-17-issue69-{platform}/build-manifest.json"
+                      for platform in ("ios", "tvos"))
+        reviewed = {path: (ROOT / path).read_text() for path in paths}
+        self.assertEqual(self.scan(reviewed), set())
+
+        outside = {f"unreviewed/{Path(path).parent.name}.json": content
+                   for path, content in reviewed.items()}
+        self.assertEqual(self.scan(outside),
+                         {(path, "jfrog-identity-token") for path in outside})
+
+        source = "crates/xray-ffi/include/xray_ffi.h"
+        digest = json.loads(reviewed[paths[0]])["nativeSourceDigests"][source]
+        other = "e79a0029cc782ff8166c708f8c911ef39de33563b71a30df2cd2ff1d63d799ab"
+        changed = {path: content.replace(digest, other) for path, content in reviewed.items()}
+        self.assertEqual(self.scan(changed),
+                         {(path, "jfrog-identity-token") for path in paths})
+        moved = {path: json.dumps({"xray": digest}) for path in paths}
+        self.assertEqual(self.scan(moved),
+                         {(path, "jfrog-identity-token") for path in paths})
+        synthetic = "ABcdeF01234" + "GHijk56789lMno"
+        token = "ghp_" + "aB7cD9eF2gH4iJ6kL8mN0oP1qR3sT5uV7wX9"
+        controls = {path: json.dumps({"api_key": synthetic, "token": token}) for path in paths}
+        findings = self.scan(controls)
+        for path in paths:
+            self.assertIn((path, "generic-api-key"), findings)
+            self.assertIn((path, "github-pat"), findings)
+
     def test_issue56_digest_exceptions_are_narrow(self):
         base = "docs/device-results/2026-10-13-issue56/"
         paths = ("baseline-apks.json", "android-independent-fixed.json",

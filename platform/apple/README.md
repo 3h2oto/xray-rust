@@ -131,6 +131,15 @@ provider configuration. Per-start overrides use
 valid URL, or with a timeout outside `1...60000` milliseconds, fails tunnel
 startup instead of selecting a third-party endpoint.
 
+With ABI 1.12+, the provider runs the probe after config validation and DNS
+bootstrap, before `setTunnelNetworkSettings`. It uses an unstarted core with the
+same config, outbound, geodata and DNS policy, without binding listeners or
+starting TUN packet I/O. Failure or cancellation leaves system routes and DNS
+untouched. After success the provider disposes of the preflight core, applies
+network settings and starts the data-path core without repeating the probe.
+Stopping or superseding a start cancels the pending native probe. The legacy
+startup probe in `XrayCore.start()` remains available to other integrations.
+
 The provider also does not select a public DNS operator. Network Extension
 advertises the tunnel-local `198.18.0.1` interception anchor when
 `dns.fakeIp` is enabled with a usable IPv4 pool, or when `dns.servers` contains
