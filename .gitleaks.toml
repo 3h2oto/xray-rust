@@ -3,6 +3,30 @@ title = "xray-rust secret scanning"
 [extend]
 useDefault = true
 
+# Recomputed from the tracked source files named on these exact manifest lines.
+# Limit the exception to the reviewed field, digest, evidence files and rule.
+[[allowlists]]
+description = "Rehashed issue 69 iPhone and Apple TV source digests"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^docs/device-results/2026-10-17-issue69-ios/build-manifest\.json$''',
+  '''^docs/device-results/2026-10-17-issue69-tvos/build-manifest\.json$''',
+]
+regexes = [
+  '''^\s*"crates/xray-ffi/include/xray_ffi\.h": "08d5b3e82bcd8687c7395a2de136285da18afad17838aed9c8c398c8b04796d7",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayAppleClient/XrayClientRootView\.swift": "59423f46c0790069d2356e928d8d0d1ea6a8ffdddc55b693b6f4bc88e165d252",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayAppleClient/XrayMacMenuBarView\.swift": "ea892c099020205706c7abf4b36ceb1de5e202e7f53b1493f433489072520762",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayAppleClient/XrayMacRootView\.swift": "c9258ec1585f11abdebcaa376fd6c71d7a727341317aa1822cbdd70aded6cdd1",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayAppleShared/XrayAppleLog\.swift": "bd107944c088a02280b5e07c3e5de9438925ff4b6776aa6a501eab6b0e629b42",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayAppleShared/XrayClientProfile\.swift": "42066113d59f25c1ed4e02cb91e47c14b2c56a999440211a063428a769363fa7",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayAppleShared/XrayLogSanitizer\.swift": "9180be56c288477cfb91f5d25b5c4ad68ef0d9bbe9d1cd652afdafb39b536ac2",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayMobileAdapter/XrayCore\.swift": "2bccb61fe00627fc46ee45b0ab2c19a76e085290332646e02b0518e22156e9cf",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayMobileAdapter/XrayMobileLog\.swift": "289098558bfc314bec0ce0f38280fc9f21eb93cb3771174d3360934bbeba76c2",?\s*$''',
+  '''^\s*"platform/apple/Sources/XrayMobileAdapter/XrayTunAdmission\.swift": "ec07f1bff98df9381fd7ede69721a0194ecce0e4b39400b73917c7a264039710",?\s*$''',
+]
+
 [[allowlists]]
 description = "Rehashed unchanged Android Rust/JNI library digests for issue 56"
 targetRules = ["jfrog-identity-token"]
