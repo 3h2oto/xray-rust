@@ -10,6 +10,33 @@ long-term supported release series.
 
 ## Unreleased
 
+## 0.8.1 - 2026-10-18
+
+Release candidate preparation; publication and exact-candidate release
+qualification are pending.
+
+- Run the Apple startup probe after DNS bootstrap and before installing tunnel
+  routes and DNS. A failed, timed-out or cancelled probe leaves network settings
+  untouched; a successful preflight is not repeated when the data-path core
+  starts. This fixes application connectivity failures during VPN startup (#70).
+- Add C ABI 1.12, `STARTUP_PROBE_PREFLIGHT` and
+  `xray_core_preflight_startup_probe`, with the matching Swift adapter. Existing
+  `xray_core_start` probe behavior and protocol/configuration formats are
+  unchanged. The updated Apple provider requires the matching native library
+  when startup probes are enabled.
+- Update Tokio to 1.53.2, aws-lc-rs to 1.18.1, zeroize to 1.9.1, uuid to 1.28.0,
+  zstd to 0.14.2, async-trait to 0.1.92, aho-corasick to 1.1.5 and thiserror to
+  2.0.21, together with their resolved transitive dependencies.
+- Update the core Android build to AGP 9.4.1, Gradle 9.8.1 and built-in Kotlin
+  2.4.21, with verified dependency metadata and unchanged minimum API/compile SDK.
+- Fix UDP loopback port collisions in the device-test fixtures (#60) and add
+  direct-target WireGuard fixture coverage (#61). These are test-environment
+  changes, not client runtime fixes. Restore scheduled interoperability checks
+  and update CI artifact actions.
+- Preserve the published 0.8.0 evidence and the subsequent Android, iPhone and
+  Apple TV reports with their original source/binary identities. They do not
+  establish a fresh full-device or calibrated performance pass for 0.8.1.
+
 ## 0.8.0 - 2026-10-11
 
 Stable release preparation; publication status is tracked in [the promotion record](docs/v08-stable-promotion.md).
