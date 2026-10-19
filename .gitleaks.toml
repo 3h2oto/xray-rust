@@ -3,6 +3,40 @@ title = "xray-rust secret scanning"
 [extend]
 useDefault = true
 
+# Rehashed from the retained candidate/reference binaries; the two temporary
+# feature tools were independently rebuilt with the original benchmark harness.
+# These are exact binarySha256 fields, not credential values.
+[[allowlists]]
+description = "Verified 0.8.1 pinned protocol reference binary SHA256"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^docs/device-results/2026-10-18-v081-candidate/performance-protocols/manifest\.json$''',
+  '''^docs/device-results/2026-10-18-v081-candidate/performance-protocols-interrupted-1/manifest\.json$''',
+  '''^docs/device-results/2026-10-18-v081-candidate/performance-ss2022-latency-followup/manifest\.json$''',
+]
+regexes = ['''^\s*"xray": "b2a5e43a007f022ac3daa26a5eed7b9de75c2f97513e0c610d9cebd2e6658707",?\s*$''']
+
+[[allowlists]]
+description = "Verified 0.8.1 feature key-generator executable SHA256"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^docs/device-results/2026-10-18-v081-candidate/performance-features/build-manifest\.json$''']
+regexes = ['''^\s*"keys": "0d6f83d55d5e742e22d59ca27f1f2dd82f50318d6bd95dcaf44fe37ceb3509aa",?\s*$''']
+
+[[allowlists]]
+description = "Verified 0.8.1 feature benchmark client executable SHA256 fields"
+targetRules = ["jfrog-identity-token"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^docs/device-results/2026-10-18-v081-candidate/performance-features/build-manifest\.json$''']
+regexes = [
+  '''^\s*"xray-core": "fcbfcfe586d891ecf556570acd32ce5160e803498e30fe072d151d0056d23b99",?\s*$''',
+  '''^\s*"xray-rust": "7c8008dde7b0b920cff927b947ede178827fb8a220d05d6adb776c8587b7251c",?\s*$''',
+]
+
 # Recomputed from the tracked source files named on these exact manifest lines.
 # Limit the exception to the reviewed field, digest, evidence files and rule.
 [[allowlists]]

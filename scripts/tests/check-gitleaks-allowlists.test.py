@@ -24,6 +24,44 @@ ARCHIVE_ALLOWLIST = "Nine verified file digests in the v0.7 automated evidence i
 
 
 class EvidenceAllowlists(unittest.TestCase):
+    def test_v081_binary_digest_exceptions_are_narrow(self):
+        base = "docs/device-results/2026-10-18-v081-candidate/"
+        names = ("performance-protocols/manifest.json",
+                 "performance-protocols-interrupted-1/manifest.json",
+                 "performance-ss2022-latency-followup/manifest.json",
+                 "performance-features/build-manifest.json")
+        inventory = json.loads((ROOT / base / "inventory.json").read_text())
+        hashes = {item["path"]: item["publishedSHA256"] for item in inventory["files"]}
+        reviewed = {}
+        for name in names:
+            content = (ROOT / base / name).read_bytes()
+            self.assertEqual(hashlib.sha256(content).hexdigest(), hashes[name])
+            reviewed[base + name] = content.decode()
+        self.assertEqual(self.scan(reviewed), set())
+        other = "e79a0029cc782ff8166c708f8c911ef39de33563b71a30df2cd2ff1d63d799ab"
+        reference = json.loads(reviewed[base + names[0]])["binarySha256"]["xray"]
+        for name in names[:3]:
+            path = base + name
+            self.assertIn((path, "jfrog-identity-token"),
+                          self.scan({path: reviewed[path].replace(reference, other)}))
+            moved = self.scan({path: reviewed[path].replace('"xray":', '"credential":')})
+            self.assertTrue(any(found_path == path for found_path, _ in moved))
+        outside = {"unreviewed/" + name: content for name, content in reviewed.items()}
+        findings = self.scan(outside)
+        for path in outside:
+            self.assertIn((path, "jfrog-identity-token"), findings)
+        feature = base + names[-1]
+        key_digest = json.loads(reviewed[feature])["binarySha256"]["keys"]
+        self.assertIn((feature, "generic-api-key"),
+                      self.scan({feature: json.dumps({"api_key": key_digest})}))
+        synthetic = "ABcdeF01234" + "GHijk56789lMno"
+        token = "ghp_" + "aB7cD9eF2gH4iJ6kL8mN0oP1qR3sT5uV7wX9"
+        controls = {path: json.dumps({"api_key": synthetic, "token": token}) for path in reviewed}
+        findings = self.scan(controls)
+        for path in controls:
+            self.assertIn((path, "generic-api-key"), findings)
+            self.assertIn((path, "github-pat"), findings)
+
     def test_issue69_source_digest_exceptions_are_narrow(self):
         paths = tuple(f"docs/device-results/2026-10-17-issue69-{platform}/build-manifest.json"
                       for platform in ("ios", "tvos"))
