@@ -1,0 +1,15 @@
+{
+  "candidate": "5b61eee201fac8639cb1dac0349e34af65db90f7",
+  "result": "partial evidence integrity verified; release qualification incomplete",
+  "ciRunsPassed": 3,
+  "androidFunctionalCasesPassed": 32,
+  "androidResourceCasesPassed": 12,
+  "androidLocalTCPCancellationPassed": 12,
+  "androidUDPCancellationCasesPassed": 6,
+  "androidRemoteCloseOutsideBound": 4,
+  "schema4PerformanceMetricsPassed": 13,
+  "legacyPerformancePassed": true,
+  "originalFivePercentComparisonPassed": false,
+  "ss2022LatencyDiagnosticRatio": 0.9907407407407407,
+  "manualAppleWANAndLock": "pending, owner postponed; not waived"
+}

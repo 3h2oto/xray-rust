@@ -34,6 +34,19 @@ test results. The 0.8.0-specific owner decisions are historical records, not
 new 0.8.1 decisions. The existing v0.8 Android network/lock omissions retain
 their documented scope.
 
+## Candidate qualification snapshot
+
+The [2026-10-18 measurement report](device-results/2026-10-18-v081-candidate/README.md)
+records exact-candidate CI, physical-device and performance results, including
+original fixture failures and controls. Full core and SDK CI passed. Thirteen
+schema-4 performance metrics and the historical calibrated checks passed.
+Apple Wi-Fi/cellular and lock/wake actions were postponed by the owner, not
+waived. The initial SS2022 latency comparison exceeded 5%; a longer diagnostic
+series did not reproduce it, but the uncertainty interval crosses the 5% bound.
+The existing SS2022 remote-EOF limitation remains explicit. No passing release
+evidence archive or public tag has been created. This documentation commit does
+not replace the qualified runtime source identity `5b61eee`.
+
 ## Publication order
 
 1. Commit the candidate, pin its exact revision/tree in `xray-rust-mobile`,

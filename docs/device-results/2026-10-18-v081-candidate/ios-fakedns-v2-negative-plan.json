@@ -1,0 +1,5 @@
+{
+  "expected": "domain traffic rejection after successful FakeDNS assertion and literal IPv4/IPv6 TCP",
+  "freshDNSName": true,
+  "nativeChanged": false
+}

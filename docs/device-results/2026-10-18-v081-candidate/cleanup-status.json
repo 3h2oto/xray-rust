@@ -1,0 +1,18 @@
+{
+  "status": "completed",
+  "androidOriginalVPNRestored": true,
+  "androidActiveVPNPackage": "com.wireguard.android",
+  "androidTunnelInterfaceMatchesOriginal": true,
+  "androidTestVPNStopped": true,
+  "appleNormalProviderAppRestored": true,
+  "localCampaignFixtureProcessesStopped": true,
+  "baselineSourceWorktreeRemoved": true,
+  "WAN": {
+    "temporaryFixtureDirectoryAbsent": true,
+    "temporaryFixtureProcessAbsent": true,
+    "temporaryEchoProcessAbsent": true,
+    "productionXrayStillPresent": true,
+    "originalTestXrayStillPresent": true
+  },
+  "time": 1792368841.4729862
+}
