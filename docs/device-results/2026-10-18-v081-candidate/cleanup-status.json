@@ -14,5 +14,7 @@
     "productionXrayStillPresent": true,
     "originalTestXrayStillPresent": true
   },
-  "time": 1792368841.4729862
+  "time": 1792368841.4729862,
+  "manualWAN": "ios-wan-manual/cleanup.json: fixture units inactive, private directory removed, test services restored, production PID unchanged",
+  "iPhone": "normal app mode relaunched after completed WAN/lock tests"
 }

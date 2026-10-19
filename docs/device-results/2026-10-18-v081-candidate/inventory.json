@@ -152,8 +152,8 @@
       "path": "cleanup-status.json",
       "sourcePath": "cleanup-status.json",
       "encoding": "redacted UTF-8",
-      "sourceSHA256": "112f7f5572f258675be4d07356b91a4f408cac631d9ae05144e312a848bf00f0",
-      "publishedSHA256": "112f7f5572f258675be4d07356b91a4f408cac631d9ae05144e312a848bf00f0"
+      "sourceSHA256": "302b8bb433c1014d3e2e7c4c2c6ed7002f95dbf2961d262be51ea643833c4d4b",
+      "publishedSHA256": "302b8bb433c1014d3e2e7c4c2c6ed7002f95dbf2961d262be51ea643833c4d4b"
     },
     {
       "path": "collect-latency-followup.py",
@@ -422,11 +422,144 @@
       "publishedSHA256": "8f2506d8de8de08a68449e935209f13689af802c9c36f4a9475e077661a0f3aa"
     },
     {
+      "path": "ios-wan-cleanup.py",
+      "sourcePath": "ios-wan-cleanup.py",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "f9a1e071d00834254993619f12038caa0315d029991c57dab83cba019b50eab9",
+      "publishedSHA256": "f9a1e071d00834254993619f12038caa0315d029991c57dab83cba019b50eab9"
+    },
+    {
+      "path": "ios-wan-manual/cleanup.json",
+      "sourcePath": "ios-wan-manual/cleanup.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "346e6e8e731ae4cd0e619dc5799d51a5dd42a6809357f195dde9c16daaf7460d",
+      "publishedSHA256": "346e6e8e731ae4cd0e619dc5799d51a5dd42a6809357f195dde9c16daaf7460d"
+    },
+    {
+      "path": "ios-wan-manual/services-before.json",
+      "sourcePath": "ios-wan-manual/services-before.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "80010f012f916c7bb01e9456cb2e4e84fb2ed28f221756d124ca69370ec6b5ca",
+      "publishedSHA256": "80010f012f916c7bb01e9456cb2e4e84fb2ed28f221756d124ca69370ec6b5ca"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-default-plan.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-default-plan.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "7c087aa106fbdf46974f88674319c41d5ea3898092f9b412c1bdefa6bf8c3f2a",
+      "publishedSHA256": "7c087aa106fbdf46974f88674319c41d5ea3898092f9b412c1bdefa6bf8c3f2a"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-default-result.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-default-result.json",
+      "encoding": "redacted JSON; one array item per line",
+      "sourceSHA256": "43183dfd5cea346c0f0a1af57fa083017b54bca39fcdf14d3208aa76de094842",
+      "publishedSHA256": "c9834e90547366dd2e6739465a2d0c3bfab6f8345505b61d25c0fea9563d6b67"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-default-services-restored.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-default-services-restored.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "b8d3d7202690fac4870b02c2de50f38395e5249c98f5cb3629120226e80f2589",
+      "publishedSHA256": "b8d3d7202690fac4870b02c2de50f38395e5249c98f5cb3629120226e80f2589"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-pmtu-plan.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-pmtu-plan.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "19081683e118de0ba2fdd7fd32ef482014b10aab23e161bf71b687e69422fb7c",
+      "publishedSHA256": "19081683e118de0ba2fdd7fd32ef482014b10aab23e161bf71b687e69422fb7c"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-pmtu-pmtu-check.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-pmtu-pmtu-check.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "086d44d6a29f3ce9e9e17cfd32b651dd61ac307c4fc3a115e2137d5dad2ac164",
+      "publishedSHA256": "086d44d6a29f3ce9e9e17cfd32b651dd61ac307c4fc3a115e2137d5dad2ac164"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-pmtu-pmtu.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-pmtu-pmtu.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "7afd3a83ec514b676ad197a60b504aa44b87abbfc5ab2e2b2a0d3bd4403aee3f",
+      "publishedSHA256": "7afd3a83ec514b676ad197a60b504aa44b87abbfc5ab2e2b2a0d3bd4403aee3f"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-pmtu-result.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-pmtu-result.json",
+      "encoding": "redacted JSON; one array item per line",
+      "sourceSHA256": "2966a3246f0ff4040d8dad2c6c38f2aa6b28bf5005c870f3ac1a16d25437186e",
+      "publishedSHA256": "5c086c9c9f9404f596fdd0cfab4ab5dfd5821eec23fa1abe627fd114d1113b65"
+    },
+    {
+      "path": "ios-wan-manual/shadowsocks2022-pmtu-services-restored.json",
+      "sourcePath": "ios-wan-manual/shadowsocks2022-pmtu-services-restored.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "c28cc742b831d9c7928dd060fd4a7d1e3c335ae12d220bdfa2bc4329cf6f7ae1",
+      "publishedSHA256": "c28cc742b831d9c7928dd060fd4a7d1e3c335ae12d220bdfa2bc4329cf6f7ae1"
+    },
+    {
+      "path": "ios-wan-manual/summary.json",
+      "sourcePath": "ios-wan-manual/summary.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "796a861d8b45b2ec3499df2ac21fd765042ccc0f3b1963436fc675451b4a3f2d",
+      "publishedSHA256": "796a861d8b45b2ec3499df2ac21fd765042ccc0f3b1963436fc675451b4a3f2d"
+    },
+    {
+      "path": "ios-wan-manual/trojan-plan.json",
+      "sourcePath": "ios-wan-manual/trojan-plan.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "15c11b5db5790bf7ff253f6f41e74f2f2bb4664ad251e8a3a17962997d4a2e8a",
+      "publishedSHA256": "15c11b5db5790bf7ff253f6f41e74f2f2bb4664ad251e8a3a17962997d4a2e8a"
+    },
+    {
+      "path": "ios-wan-manual/trojan-result.json",
+      "sourcePath": "ios-wan-manual/trojan-result.json",
+      "encoding": "redacted JSON; one array item per line",
+      "sourceSHA256": "affa4b8c342aeccd23db8be957c3e80db40e02b794a4d8a55fa20e463def3d38",
+      "publishedSHA256": "01923af67fe82faa5c7d07f65610fceabdf4d088267e127b789242c681c53dcc"
+    },
+    {
+      "path": "ios-wan-manual/trojan-services-restored.json",
+      "sourcePath": "ios-wan-manual/trojan-services-restored.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "85f10ed7a69ae49d66938a554b22f0b1947666be22639b179b4955ecb8d21ce8",
+      "publishedSHA256": "85f10ed7a69ae49d66938a554b22f0b1947666be22639b179b4955ecb8d21ce8"
+    },
+    {
+      "path": "ios-wan-manual/vmess-plan.json",
+      "sourcePath": "ios-wan-manual/vmess-plan.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "0f69ebe4246ec1c433500ebb131e8aa0134fc878aca0af4e81e2eac4bdd6f11a",
+      "publishedSHA256": "0f69ebe4246ec1c433500ebb131e8aa0134fc878aca0af4e81e2eac4bdd6f11a"
+    },
+    {
+      "path": "ios-wan-manual/vmess-result.json",
+      "sourcePath": "ios-wan-manual/vmess-result.json",
+      "encoding": "redacted JSON; one array item per line",
+      "sourceSHA256": "3c810ce9ca1083e9d982b2876f203d165de2774f5736bbe7c3369cb827c51a89",
+      "publishedSHA256": "bdaa417851103112117e2b07c85946fe7907be225882ef6927bdd4005292aee0"
+    },
+    {
+      "path": "ios-wan-manual/vmess-services-restored.json",
+      "sourcePath": "ios-wan-manual/vmess-services-restored.json",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "157deb55996a5bf046d7d06e9a2eeded7ad6117339acafab028479c29ae0a72c",
+      "publishedSHA256": "157deb55996a5bf046d7d06e9a2eeded7ad6117339acafab028479c29ae0a72c"
+    },
+    {
+      "path": "ios-wan-manual.py",
+      "sourcePath": "ios-wan-manual.py",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "d7740ba6b6e5975aa8919e3035d5549cce40cdb49e25bfc213e22861dbf2b0a1",
+      "publishedSHA256": "3732f75f697c990f6844a07c32c9a343ade024d8ddfc7f5a68b5dd2e374ef0ee"
+    },
+    {
       "path": "ios-wan-plan.json",
       "sourcePath": "ios-wan-plan.json",
       "encoding": "redacted UTF-8",
-      "sourceSHA256": "af9720b3427460d264d30adf4dd451041263901681dc29e7df45fc3a7504a01f",
-      "publishedSHA256": "af9720b3427460d264d30adf4dd451041263901681dc29e7df45fc3a7504a01f"
+      "sourceSHA256": "aa31c33cab55ffa4c9c816bd761a6a1faf028ec30d4106dc3bfc3acf082ffaa7",
+      "publishedSHA256": "aa31c33cab55ffa4c9c816bd761a6a1faf028ec30d4106dc3bfc3acf082ffaa7"
     },
     {
       "path": "local-fixture-cleanup.json",
@@ -1066,6 +1199,13 @@
       "publishedSHA256": "d4b47bba741f8401d360b37d2139a52b95495eea78150de1fe28325ae4df5fea"
     },
     {
+      "path": "summarize-ios-wan-manual.py",
+      "sourcePath": "summarize-ios-wan-manual.py",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "eaaa51acf41ddceb8ac366b9f9af6fcc62f332adae546e918a46e80accf1464f",
+      "publishedSHA256": "eaaa51acf41ddceb8ac366b9f9af6fcc62f332adae546e918a46e80accf1464f"
+    },
+    {
       "path": "summarize-performance.py",
       "sourcePath": "summarize-performance.py",
       "encoding": "redacted UTF-8",
@@ -1076,16 +1216,16 @@
       "path": "verification-summary.json",
       "sourcePath": "verification-summary.json",
       "encoding": "redacted UTF-8",
-      "sourceSHA256": "a25e9e60ed7ffd570b0eecc11a25177e9980a2268a7c0c815808ee0f2f8c8018",
-      "publishedSHA256": "a25e9e60ed7ffd570b0eecc11a25177e9980a2268a7c0c815808ee0f2f8c8018"
+      "sourceSHA256": "8b194750993082230f8aa12988095780e6c0d680b4daaf67693bb83c8b1aaa2d",
+      "publishedSHA256": "8b194750993082230f8aa12988095780e6c0d680b4daaf67693bb83c8b1aaa2d"
     },
     {
       "path": "verify-collected-evidence.py",
       "sourcePath": "verify-collected-evidence.py",
       "encoding": "redacted UTF-8",
-      "sourceSHA256": "fc2bdfe2ac13eecf5663cc224e8877c70e713cb63e27cd3c0a6ebc2b2bb15888",
-      "publishedSHA256": "fc2bdfe2ac13eecf5663cc224e8877c70e713cb63e27cd3c0a6ebc2b2bb15888"
+      "sourceSHA256": "b01dbacc186f5e914a0463545a4b0f9d9a169ada253e721c986e0ec17a3b0dc7",
+      "publishedSHA256": "b01dbacc186f5e914a0463545a4b0f9d9a169ada253e721c986e0ec17a3b0dc7"
     }
   ],
-  "scope": "sanitized exact-candidate measurements; manual Apple WAN/lock tests pending"
+  "scope": "sanitized exact-candidate measurements; manual Apple WAN/lock completed, SS2022 conditional on owned server socket PMTU; original failures retained"
 }

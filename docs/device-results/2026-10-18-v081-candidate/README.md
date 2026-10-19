@@ -1,10 +1,12 @@
 # 0.8.1 candidate measurements — 2026-10-18
 
 **Incomplete release qualification. No 0.8.1 release/tag has been published.**
-The owner deferred the physical iPhone network-switch and lock/wake actions
-("Смогу позже"). They remain required for Trojan, Shadowsocks 2022 and VMess;
-this is not a waiver. This directory is a measured, partial report, not a passing
-schema-4 archive. Historical 0.8.0 exceptions are not new 0.8.1 approvals.
+The owner completed the physical iPhone network-switch and lock/wake actions.
+Trojan and VMess passed; SS2022 passed only with the documented server UDP PMTU
+condition, and its default-policy failure remains preserved. This directory is
+a measured report, not a passing schema-4 archive. SS2022 deployment/cancellation
+limitations and the 5% performance confirmation remain unresolved for publication.
+Historical 0.8.0 exceptions are not new 0.8.1 approvals.
 
 ## Candidate and artifact boundary
 
@@ -62,6 +64,39 @@ Use [device-inventory.json](device-inventory.json) and each suite's JSONL for
 exact counts and bounds. A completed matrix is not evidence for manual network
 switching or lock/wake. WireGuard uses canonical JSON import because the Android
 automation host's link-import path accepts URI schemes, not wg-quick text.
+
+## Physical iPhone WAN transitions and lock/wake
+
+The owner resumed on 2026-10-18 (device log timestamps are 2026-10-19 UTC).
+The normal signed Debug harness and unchanged release native library ran on the
+physical iPhone. Each successful run exercised full IPv4/IPv6/domain TCP and
+IPv4/IPv6 UDP traffic after every transition, with one stable runtime ID.
+These are fresh-flow recovery checks, not established TCP-session continuity.
+
+| Protocol / server condition | Cellular recovery | Wi-Fi return | Unlock recovery | Observed lock |
+| --- | ---: | ---: | ---: | ---: |
+| Trojan / default | 5.19 s | 5.02 s | 5.18 s | 24.97 s |
+| VMess / default | 3.81 s | 3.92 s | 4.42 s | 26.80 s |
+| SS2022 / owned UDP socket PMTU=0 | 3.82 s | 3.71 s | 4.38 s | 27.64 s |
+
+Recovery is measured from the observed path change/unlock, including time until
+the application resumes; each full traffic sweep succeeded on its first try.
+The probe required at least 15 seconds of observed lock; the user was instructed
+to hold approximately 30 seconds. Exact recorded intervals are retained.
+
+The [SS2022 default-policy run](ios-wan-manual/shadowsocks2022-default-result.json)
+failed its initial Wi-Fi traffic sweep: IPv4/IPv6/domain TCP and IPv4 UDP passed,
+but the 1,372-byte IPv6 UDP echo timed out. No network/lock transition is claimed
+for that attempt. A fresh fixture and synthetic domain were then used for the
+conditional run. The public pinned helper changed only the owned temporary
+IPv4 UDP listener's `IP_MTU_DISCOVER` from 1 to 0. Before/after audits verify the
+same PID and FD retained that value; no host-wide PMTU setting or client change
+was applied. See [the measured summary](ios-wan-manual/summary.json) and
+[the existing deployment condition](../../ss2022-server-udp-pmtu.md).
+
+Each successful run contains 12 TCP and 8 UDP exchanges, DNS checks, connection
+closure verification and clean disconnect. Original failure events remain
+failed. This conditional evidence does not establish a default-policy fix.
 
 ## IPOnDemand controls and preserved failed attempts
 
@@ -153,8 +188,8 @@ crosses 1.05: these samples do not establish a 5% non-regression bound with
 
 CI details, exact revisions and job outcomes are in [ci-status.json](ci-status.json).
 
-Remaining release work: finish physical iPhone WAN/lock tests with the owner,
-resolve any failed performance/qualification checks, produce and validate an
+Remaining release work: resolve the documented SS2022 deployment/cancellation
+limitations and failed/inconclusive 5% performance qualification, produce and validate an
 exact-commit schema-4 archive, then follow the core-tag / SDK-pin / prepared
 Apple-checksum / SDK-tag / published-consumer sequence in
 [the release plan](../../v081-release.md). Do not move an existing tag or replace
@@ -163,13 +198,18 @@ missing measurements with an older candidate's results.
 The owner selected the private repository `.env` for the WAN fixture. Fresh
 high TCP ports were unreachable from the Mac; an isolated port-80 echo test
 passed TCP and timed out on UDP. Those are **fixture connectivity observations**,
-not candidate protocol failures. Temporary WAN processes, directories and keys
-were removed; original production and test Xray processes remained present.
-When the owner is ready, use the existing reachable test allocation with
-recorded service state and automatic restoration; do not modify production
-x-ui. See [the WAN plan](ios-wan-plan.json).
+not candidate protocol failures. The manual campaign subsequently used the
+existing reachable test allocation on port 53053. Before each bounded fixture,
+only the two pre-existing test services were suspended; systemd ExecStopPost
+restored both. Their initial state and restoration after every run are retained.
+The pinned public Linux Xray reference SHA256 was
+`dad34bede2e76f66f3ade83cd1eba71c39bb2a065011528e5571c0638a5f64e1`.
+All temporary units are now inactive, the temporary directory and keys were
+removed, both original test services are active, and the original production
+Xray PID remains present. The iPhone was relaunched in normal application mode.
+See [cleanup verification](ios-wan-manual/cleanup.json) and [the WAN plan](ios-wan-plan.json).
 
-Cleanup snapshot: `{"status": "completed", "androidOriginalVPNRestored": true, "androidActiveVPNPackage": "com.wireguard.android", "androidTunnelInterfaceMatchesOriginal": true, "androidTestVPNStopped": true, "appleNormalProviderAppRestored": true, "localCampaignFixtureProcessesStopped": true, "baselineSourceWorktreeRemoved": true, "WAN": {"temporaryFixtureDirectoryAbsent": true, "temporaryFixtureProcessAbsent": true, "temporaryEchoProcessAbsent": true, "productionXrayStillPresent": true, "originalTestXrayStillPresent": true}, "time": 1792368841.4729862}`.
+Cleanup snapshot: `{"status": "completed", "androidOriginalVPNRestored": true, "androidActiveVPNPackage": "com.wireguard.android", "androidTunnelInterfaceMatchesOriginal": true, "androidTestVPNStopped": true, "appleNormalProviderAppRestored": true, "localCampaignFixtureProcessesStopped": true, "baselineSourceWorktreeRemoved": true, "WAN": {"temporaryFixtureDirectoryAbsent": true, "temporaryFixtureProcessAbsent": true, "temporaryEchoProcessAbsent": true, "productionXrayStillPresent": true, "originalTestXrayStillPresent": true}, "time": 1792368841.4729862, "manualWAN": "ios-wan-manual/cleanup.json: fixture units inactive, private directory removed, test services restored, production PID unchanged", "iPhone": "normal app mode relaunched after completed WAN/lock tests"}`.
 
 ## Evidence handling
 

@@ -1,6 +1,6 @@
 {
   "candidate": "5b61eee201fac8639cb1dac0349e34af65db90f7",
-  "result": "partial evidence integrity verified; release qualification incomplete",
+  "result": "collected evidence integrity verified; release qualification incomplete",
   "ciRunsPassed": 3,
   "androidFunctionalCasesPassed": 32,
   "androidResourceCasesPassed": 12,
@@ -11,5 +11,12 @@
   "legacyPerformancePassed": true,
   "originalFivePercentComparisonPassed": false,
   "ss2022LatencyDiagnosticRatio": 0.9907407407407407,
-  "manualAppleWANAndLock": "pending, owner postponed; not waived"
+  "manualAppleWANAndLock": "completed: Trojan/VMess passed; SS2022 default failed, owned server socket PMTU condition passed",
+  "manualAppleWANPassedRuns": 3,
+  "ss2022DefaultPolicyFailedRuns": 1,
+  "releaseLimitationsUnresolved": [
+    "SS2022 WAN default policy",
+    "SS2022 remote EOF bound",
+    "5% latency non-regression confirmation"
+  ]
 }
