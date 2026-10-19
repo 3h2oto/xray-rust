@@ -5,7 +5,8 @@
   "archiveSHA256": "5722f059df97c43dcd023155ab9a085a3cd7eaf0a5f5e16d206a2d720748faa6",
   "schemaVersion": 4,
   "localValidation": "passed with unchanged exact-candidate schema-4 validator",
-  "workflowValidation": "pending",
+  "workflowValidation": "passed",
   "publication": "authorized; pending validation and canonical artifacts",
-  "scope": "Measured deployment conditions and explicit 0.8.1 owner decisions; all original failures retained."
+  "scope": "Measured deployment conditions and explicit 0.8.1 owner decisions; all original failures retained.",
+  "workflowRun": "https://github.com/aimalygin/xray-rust/actions/runs/39182739969"
 }
