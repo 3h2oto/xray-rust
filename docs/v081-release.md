@@ -47,14 +47,16 @@ conditional deployment evidence, not a default-policy fix. All temporary WAN
 units are stopped and the original test services are restored.
 The initial SS2022 latency comparison exceeded 5%; a longer diagnostic
 series did not reproduce it, but the uncertainty interval crosses the 5% bound.
-The existing SS2022 remote-EOF limitation remains explicit. No passing release
-evidence archive or public tag has been created. This documentation commit does
+The existing SS2022 remote-EOF limitation remains explicit. The release
+evidence archive is assembled; no public tag has been created yet. This documentation commit does
 not replace the qualified runtime source identity `5b61eee`.
 
-Publication still requires resolution of the default-policy SS2022 WAN failure,
-remote-EOF bound and 5% latency confirmation. Prior 0.8.0-specific owner decisions
-do not authorize new exceptions. All three findings must remain visible if the
-owner selects a scoped 0.8.1 release decision.
+The owner explicitly authorized publication with all three limitations:
+“Выпускать 0.8.1 с описанными ограничениями”. The scoped
+[0.8.1 decision](releases/v0.8.1-owner-decisions.json) preserves failed
+measurements and accepts the SS2022 WAN/remote-EOF limitations and unconfirmed
+5% latency bound. The exact-candidate archive passes the unchanged local
+schema-4 validator; evidence CI and distribution steps remain required.
 
 ## Publication order
 

@@ -107,6 +107,13 @@
       "publishedSHA256": "7a1e41941ef4ed522e9f827f7baadea354ec9bec3258c50e6c676330d6d69509"
     },
     {
+      "path": "assemble-evidence.py",
+      "sourcePath": "assemble-evidence.py",
+      "encoding": "redacted UTF-8",
+      "sourceSHA256": "43fbb62e0070c50200d53bd978b33ba843f3a3a78d19322eeb98c76fd9d23034",
+      "publishedSHA256": "43fbb62e0070c50200d53bd978b33ba843f3a3a78d19322eeb98c76fd9d23034"
+    },
+    {
       "path": "baseline-build-provenance.json",
       "sourcePath": "baseline-build-provenance.json",
       "encoding": "redacted UTF-8",

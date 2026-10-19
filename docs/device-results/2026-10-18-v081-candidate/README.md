@@ -1,12 +1,14 @@
 # 0.8.1 candidate measurements — 2026-10-18
 
-**Incomplete release qualification. No 0.8.1 release/tag has been published.**
+**Publication authorized with explicit 0.8.1 limitations; distribution gates pending.**
 The owner completed the physical iPhone network-switch and lock/wake actions.
 Trojan and VMess passed; SS2022 passed only with the documented server UDP PMTU
 condition, and its default-policy failure remains preserved. This directory is
-a measured report, not a passing schema-4 archive. SS2022 deployment/cancellation
-limitations and the 5% performance confirmation remain unresolved for publication.
-Historical 0.8.0 exceptions are not new 0.8.1 approvals.
+a measured report supporting the exact-candidate schema-4 archive. The owner
+explicitly selected “Выпускать 0.8.1 с описанными ограничениями”. The
+[0.8.1 decision](../../releases/v0.8.1-owner-decisions.json) accepts the SS2022
+WAN/remote-EOF limitations and defers the unconfirmed 5% latency bound for this
+release. Failures remain failed; historical exceptions were not silently inherited.
 
 ## Candidate and artifact boundary
 
@@ -182,15 +184,15 @@ pairs and an explicitly exploratory combination of both series. This does not
 turn the original five-pair failure into a pass or imply a universal latency
 guarantee. The combined 95.86% median-ratio interval is 0.947–1.123, which
 crosses 1.05: these samples do not establish a 5% non-regression bound with
-95% confidence. No historical budget exception is applied automatically.
+95% confidence. The new 0.8.1 owner decision accepts this unconfirmed bound for publication;
+it does not change the measurements or their statistical interpretation.
 
 ## CI, pending work and cleanup
 
 CI details, exact revisions and job outcomes are in [ci-status.json](ci-status.json).
 
-Remaining release work: resolve the documented SS2022 deployment/cancellation
-limitations and failed/inconclusive 5% performance qualification, produce and validate an
-exact-commit schema-4 archive, then follow the core-tag / SDK-pin / prepared
+Remaining release work: validate the exact-commit schema-4 archive in CI under
+the explicit 0.8.1 decision, then follow the core-tag / SDK-pin / prepared
 Apple-checksum / SDK-tag / published-consumer sequence in
 [the release plan](../../v081-release.md). Do not move an existing tag or replace
 missing measurements with an older candidate's results.
