@@ -911,6 +911,7 @@ pub enum OutboundNodeKind {
     Shadowsocks2022,
     Dns,
     Blackhole,
+    Socks,
     Selector,
 }
 
@@ -1124,6 +1125,7 @@ impl OutboundGraph {
                     OutboundSettings::Wireguard(_) => OutboundNodeKind::Wireguard,
                     OutboundSettings::Dns(_) => OutboundNodeKind::Dns,
                     OutboundSettings::Blackhole(_) => OutboundNodeKind::Blackhole,
+                    OutboundSettings::Socks(_) => OutboundNodeKind::Socks,
                 },
             })
             .collect::<Vec<_>>();
@@ -3075,6 +3077,8 @@ impl OutboundFactory {
                 .cached_shadowsocks_outbound(node)
                 .map(TcpOutbound::Shadowsocks2022),
             OutboundSettings::Dns(_) => Err(CachedOutboundError::NoSupportedOutbound),
+            // The SOCKS outbound runtime is not wired yet.
+            OutboundSettings::Socks(_) => Err(CachedOutboundError::NoSupportedOutbound),
             OutboundSettings::Blackhole(_) => Err(CachedOutboundError::BlackholeOutbound),
             OutboundSettings::Freedom => {
                 if !stream_transport_is_dialable(&outbound.stream) {
@@ -3140,6 +3144,7 @@ impl OutboundFactory {
                 .cached_shadowsocks_outbound(node)
                 .map(UdpOutbound::Shadowsocks2022),
             OutboundSettings::Dns(_) => Err(CachedOutboundError::NoSupportedOutbound),
+            OutboundSettings::Socks(_) => Err(CachedOutboundError::UnsupportedOutboundNetwork),
             OutboundSettings::Blackhole(_) => Err(CachedOutboundError::BlackholeOutbound),
             OutboundSettings::Freedom => {
                 if !stream_transport_is_dialable(&outbound.stream) {
@@ -3197,7 +3202,8 @@ impl OutboundFactory {
             | OutboundSettings::Trojan(_)
             | OutboundSettings::Vmess(_)
             | OutboundSettings::Shadowsocks2022(_)
-            | OutboundSettings::Wireguard(_) => Err(CachedOutboundError::NoSupportedOutbound),
+            | OutboundSettings::Wireguard(_)
+            | OutboundSettings::Socks(_) => Err(CachedOutboundError::NoSupportedOutbound),
         }
     }
 }
@@ -3241,6 +3247,8 @@ fn build_tcp_outbound(outbound: &OutboundConfig) -> Result<TcpOutbound, CoreErro
             Shadowsocks2022Outbound::new(outbound).map(TcpOutbound::Shadowsocks2022)
         }
         OutboundSettings::Dns(_) => Err(CoreError::NoSupportedOutbound),
+        // The SOCKS outbound runtime is not wired yet.
+        OutboundSettings::Socks(_) => Err(CoreError::NoSupportedOutbound),
         OutboundSettings::Blackhole(_) => Err(CoreError::BlackholeOutbound),
         OutboundSettings::Freedom => {
             if !stream_transport_is_dialable(&outbound.stream) {
@@ -3269,6 +3277,7 @@ fn build_udp_outbound(outbound: &OutboundConfig) -> Result<UdpOutbound, CoreErro
             Shadowsocks2022Outbound::new(outbound).map(UdpOutbound::Shadowsocks2022)
         }
         OutboundSettings::Dns(_) => Err(CoreError::NoSupportedOutbound),
+        OutboundSettings::Socks(_) => Err(CoreError::UnsupportedOutboundNetwork),
         OutboundSettings::Blackhole(_) => Err(CoreError::BlackholeOutbound),
         OutboundSettings::Freedom => {
             if !stream_transport_is_dialable(&outbound.stream) {
