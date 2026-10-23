@@ -16,6 +16,7 @@ use xray_config::{
     TargetAddr, XhttpMode, XhttpPaddingMethod, XhttpPaddingPlacement, XhttpPlacement, XhttpRange,
     XhttpSettings, XhttpUplinkDataPlacement,
 };
+use xray_proxy::inbound::{SocksAccount, SocksInboundAuth};
 
 #[test]
 fn parses_vless_reality_vision_subset() {
@@ -937,9 +938,9 @@ fn parses_socks_inbound_password_accounts_without_leaking_them() {
 
     assert_eq!(
         parsed.config.inbounds[0].protocol,
-        InboundProtocol::Socks(xray_proxy::inbound::SocksInboundAuth::Password(vec![
-            xray_proxy::inbound::SocksAccount::new(b"first-user", b"first-pass").unwrap(),
-            xray_proxy::inbound::SocksAccount::new(b"synthetic-user", b"synthetic-pass").unwrap(),
+        InboundProtocol::Socks(SocksInboundAuth::Password(vec![
+            SocksAccount::new(b"first-user", b"first-pass").unwrap(),
+            SocksAccount::new(b"synthetic-user", b"synthetic-pass").unwrap(),
         ]))
     );
     assert!(parsed.diagnostics.is_empty());

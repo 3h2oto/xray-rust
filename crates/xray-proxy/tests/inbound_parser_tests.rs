@@ -108,9 +108,9 @@ fn password_auth() -> SocksInboundAuth {
 }
 
 fn password_request(user: &[u8], pass: &[u8]) -> Vec<u8> {
-    let mut request = vec![1, user.len() as u8];
+    let mut request = vec![1, u8::try_from(user.len()).unwrap()];
     request.extend_from_slice(user);
-    request.push(pass.len() as u8);
+    request.push(u8::try_from(pass.len()).unwrap());
     request.extend_from_slice(pass);
     request
 }

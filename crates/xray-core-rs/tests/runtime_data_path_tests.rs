@@ -3729,9 +3729,9 @@ async fn socks5_password_login(client: &mut TcpStream, user: &[u8], pass: &[u8])
     client.read_exact(&mut method).await.unwrap();
     assert_eq!(method, [5, 2]);
 
-    let mut request = vec![1, user.len() as u8];
+    let mut request = vec![1, u8::try_from(user.len()).unwrap()];
     request.extend_from_slice(user);
-    request.push(pass.len() as u8);
+    request.push(u8::try_from(pass.len()).unwrap());
     request.extend_from_slice(pass);
     client.write_all(&request).await.unwrap();
     let mut status = [0; 2];
@@ -3808,10 +3808,7 @@ async fn run_socks_password_udp_client_lock_scenario() {
     let mut reply = [0; 10];
     control.read_exact(&mut reply).await.unwrap();
     assert_eq!(reply[..4], [5, 0, 0, 1]);
-    let relay_addr = SocketAddr::from((
-        Ipv4Addr::new(reply[4], reply[5], reply[6], reply[7]),
-        u16::from_be_bytes([reply[8], reply[9]]),
-    ));
+    let relay_addr = socks5_ipv4_reply_addr(reply);
     let target = Target::new(
         RoutingTargetAddr::Ip(echo_addr.ip()),
         echo_addr.port(),
@@ -11621,6 +11618,10 @@ async fn socks5_udp_associate(client: &mut TcpStream) -> SocketAddr {
     let mut reply = [0; 10];
     client.read_exact(&mut reply).await.unwrap();
     assert_eq!(&reply[..4], &[5, 0, 0, 1]);
+    socks5_ipv4_reply_addr(reply)
+}
+
+fn socks5_ipv4_reply_addr(reply: [u8; 10]) -> SocketAddr {
     SocketAddr::from((
         Ipv4Addr::new(reply[4], reply[5], reply[6], reply[7]),
         u16::from_be_bytes([reply[8], reply[9]]),

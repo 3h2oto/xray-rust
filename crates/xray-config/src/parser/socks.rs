@@ -10,10 +10,10 @@ impl Parser<'_> {
         inbound: &Value,
         index: usize,
     ) -> SocksInboundAuth {
-        let path = format!("$.inbounds[{index}].settings");
         let Some(settings) = inbound.get("settings").filter(|value| value.is_object()) else {
             return SocksInboundAuth::NoAuth;
         };
+        let path = format!("$.inbounds[{index}].settings");
         let auth = self
             .optional_string_at(settings, "auth", format!("{path}.auth"))
             .unwrap_or("noauth");
