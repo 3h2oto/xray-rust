@@ -44,18 +44,19 @@ impl Parser<'_> {
         }
         self.reject_unknown_fields(server, &path, &surface::SOCKS_OUTBOUND_SERVER);
         let users_path = format!("{path}.users");
-        let users = match server.get("users") {
+        let users = match server
+            .get("users")
+            .map(|users| users.as_array().filter(|a| a.len() <= 1))
+        {
             None => &[][..],
-            Some(users) => match users.as_array().filter(|a| a.len() <= 1) {
-                Some(users) => users.as_slice(),
-                None => {
-                    self.error(
-                        users_path,
-                        "SOCKS outbound users must be an array with at most one user",
-                    );
-                    return None;
-                }
-            },
+            Some(Some(users)) => users.as_slice(),
+            Some(None) => {
+                self.error(
+                    users_path,
+                    "SOCKS outbound users must be an array with at most one user",
+                );
+                return None;
+            }
         };
         let Some(user) = users.first() else {
             return self.parse_socks_outbound_server(server, &Value::Null, &path, &path);
