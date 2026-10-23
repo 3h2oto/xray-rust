@@ -15,9 +15,9 @@ use tokio::sync::{mpsc, watch, OwnedSemaphorePermit, Semaphore};
 use tokio::task::{AbortHandle, Id as TaskId, JoinSet};
 use xray_config::{CoreConfig, InboundSniffingConfig};
 use xray_proxy::inbound::{
-    encode_socks5_udp_datagram, negotiate_socks5_no_auth, parse_socks5_request_message,
+    encode_socks5_udp_datagram, negotiate_socks5, parse_socks5_request_message,
     parse_socks5_udp_datagram, write_socks5_failure, write_socks5_success,
-    write_socks5_success_with_bind, SocksCommand,
+    write_socks5_success_with_bind, SocksCommand, SocksInboundAuth,
 };
 use xray_proxy::vless::{
     encode_xudp_keep_packet, encode_xudp_new_packet, read_udp_packet, read_xudp_packet,
@@ -182,6 +182,7 @@ struct SocksUdpFlowEntry {
 )]
 pub async fn serve_socks_listener(
     listener: TcpListener,
+    auth: Arc<SocksInboundAuth>,
     inbound_tag: Option<String>,
     config: Arc<CoreConfig>,
     outbound_router: Arc<OutboundRouter>,
@@ -236,6 +237,7 @@ pub async fn serve_socks_listener(
                     }
                 };
                 accept_backoff.reset();
+                let auth = Arc::clone(&auth);
                 let inbound_tag = inbound_tag.clone();
                 let config = Arc::clone(&config);
                 let outbound_router = Arc::clone(&outbound_router);
@@ -249,6 +251,7 @@ pub async fn serve_socks_listener(
                 connections.spawn(async move {
                     handle_socks_connection(
                         stream,
+                        &auth,
                         inbound_tag,
                         config,
                         outbound_router,
@@ -273,12 +276,45 @@ pub async fn serve_socks_listener(
     while connections.join_next().await.is_some() {}
 }
 
+/// Pins a password-protected UDP association to one client socket.
+///
+/// RFC 1929 authenticates only the TCP control connection, and the relay
+/// socket is reachable by every local process. The association therefore
+/// accepts datagrams only from the address the client declared in its
+/// UDP ASSOCIATE request, or, when it declared none, from the first sender.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SocksUdpClientLock {
+    client: Option<SocketAddr>,
+}
+
+impl SocksUdpClientLock {
+    fn for_request(declared: &Target, control_peer: Option<SocketAddr>) -> Self {
+        let client = match (&declared.addr, declared.port) {
+            (_, 0) => None,
+            (TargetAddr::Ip(ip), port) if !ip.is_unspecified() => Some(SocketAddr::new(*ip, port)),
+            (_, port) => control_peer.map(|peer| SocketAddr::new(peer.ip(), port)),
+        };
+        Self { client }
+    }
+
+    fn admits(&mut self, source: SocketAddr) -> bool {
+        match self.client {
+            Some(client) => client == source,
+            None => {
+                self.client = Some(source);
+                true
+            }
+        }
+    }
+}
+
 #[expect(
     clippy::too_many_arguments,
     reason = "connection tasks receive shared runtime dependencies explicitly"
 )]
 async fn handle_socks_connection(
     mut inbound: TcpStream,
+    auth: &SocksInboundAuth,
     inbound_tag: Option<String>,
     config: Arc<CoreConfig>,
     outbound_router: Arc<OutboundRouter>,
@@ -291,7 +327,7 @@ async fn handle_socks_connection(
     shutdown: watch::Receiver<bool>,
     udp_budgets: SocksUdpBudgets,
 ) {
-    if tokio::time::timeout(policy.handshake, negotiate_socks5_no_auth(&mut inbound))
+    if tokio::time::timeout(policy.handshake, negotiate_socks5(&mut inbound, auth))
         .await
         .ok()
         .and_then(Result::ok)
@@ -329,8 +365,12 @@ async fn handle_socks_connection(
             .await;
         }
         SocksCommand::UdpAssociate => {
+            let client_lock = auth.requires_password().then(|| {
+                SocksUdpClientLock::for_request(&request.target, inbound.peer_addr().ok())
+            });
             handle_socks_udp_associate(
                 inbound,
+                client_lock,
                 inbound_tag,
                 outbound_router,
                 dns_resolvers,
@@ -685,6 +725,7 @@ async fn read_socks_tcp_sniff_payload(
 )]
 async fn handle_socks_udp_associate(
     mut control: TcpStream,
+    mut client_lock: Option<SocksUdpClientLock>,
     inbound_tag: Option<String>,
     outbound_router: Arc<OutboundRouter>,
     dns_resolvers: RuntimeDnsResolvers,
@@ -758,6 +799,12 @@ async fn handle_socks_udp_associate(
                 let Ok((len, client_addr)) = received else {
                     break;
                 };
+                if client_lock
+                    .as_mut()
+                    .is_some_and(|lock| !lock.admits(client_addr))
+                {
+                    continue;
+                }
                 let Ok(datagram) = parse_socks5_udp_datagram(&buffer[..len]) else {
                     continue;
                 };
@@ -1725,8 +1772,8 @@ mod tests {
     use super::{
         admit_socks_udp_flow, apply_fake_ip_sniffed_dial_precedence, evict_oldest_socks_udp_flow,
         should_sniff_socks_tcp, write_socks_vless_udp_payload, BoxedSocksDnsStreamFuture,
-        FakeIpTargetProvenance, SocksUdpBudgetExhaustionLog, SocksUdpBudgets, SocksUdpFlowEntry,
-        SocksUdpSniffedTarget, VlessUdpFraming, SOCKS_UDP_FLOW_QUEUE,
+        FakeIpTargetProvenance, SocksUdpBudgetExhaustionLog, SocksUdpBudgets, SocksUdpClientLock,
+        SocksUdpFlowEntry, SocksUdpSniffedTarget, VlessUdpFraming, SOCKS_UDP_FLOW_QUEUE,
         SOCKS_UDP_MAX_FLOWS_PER_ASSOCIATION,
     };
     use crate::{RuntimeLogConfig, RuntimeLogger};
@@ -2158,5 +2205,30 @@ mod tests {
             .expect("aborted task should complete");
 
         assert!(result.expect_err("task should be cancelled").is_cancelled());
+    }
+
+    #[test]
+    fn password_udp_lock_pins_the_declared_or_first_client() {
+        let peer = SocketAddr::from((Ipv4Addr::LOCALHOST, 50_000));
+        let declared =
+            |ip: Ipv4Addr, port| Target::new(TargetAddr::Ip(IpAddr::V4(ip)), port, Network::Udp);
+        let client = SocketAddr::from((Ipv4Addr::LOCALHOST, 40_000));
+        let other = SocketAddr::from((Ipv4Addr::LOCALHOST, 40_001));
+
+        let mut exact =
+            SocksUdpClientLock::for_request(&declared(Ipv4Addr::LOCALHOST, 40_000), Some(peer));
+        assert!(!exact.admits(other));
+        assert!(exact.admits(client));
+
+        let mut port_only =
+            SocksUdpClientLock::for_request(&declared(Ipv4Addr::UNSPECIFIED, 40_000), Some(peer));
+        assert!(!port_only.admits(other));
+        assert!(port_only.admits(client));
+
+        let mut first_sender =
+            SocksUdpClientLock::for_request(&declared(Ipv4Addr::UNSPECIFIED, 0), Some(peer));
+        assert!(first_sender.admits(other));
+        assert!(!first_sender.admits(client));
+        assert!(first_sender.admits(other));
     }
 }

@@ -520,7 +520,7 @@ pub enum SniffingDestination {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InboundProtocol {
     Tproxy(TproxySettings),
-    Socks,
+    Socks(xray_proxy::inbound::SocksInboundAuth),
     Http,
     Tun,
 }

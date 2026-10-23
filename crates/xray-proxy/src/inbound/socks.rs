@@ -1,9 +1,21 @@
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use bytes::Bytes;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use xray_routing::{Network, Target, TargetAddr};
+use zeroize::Zeroizing;
+
+/// RFC 1929 caps both the username and the password at 255 bytes.
+pub const MAX_SOCKS_CREDENTIAL_LENGTH: usize = u8::MAX as usize;
+
+const METHOD_NO_AUTH: u8 = 0x00;
+const METHOD_PASSWORD: u8 = 0x02;
+const METHOD_NONE_ACCEPTABLE: u8 = 0xff;
+const PASSWORD_AUTH_VERSION: u8 = 0x01;
+const PASSWORD_AUTH_SUCCESS: u8 = 0x00;
+const PASSWORD_AUTH_FAILURE: u8 = 0x01;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum SocksParseError {
@@ -25,6 +37,10 @@ pub enum SocksParseError {
     PayloadTooLarge,
     #[error("no acceptable socks authentication methods")]
     NoAcceptableMethods,
+    #[error("unsupported socks username/password version {0}")]
+    UnsupportedAuthVersion(u8),
+    #[error("socks username/password authentication failed")]
+    AuthenticationFailed,
     #[error("io error")]
     Io,
 }
@@ -47,7 +63,70 @@ pub struct SocksUdpDatagram {
     pub payload: Bytes,
 }
 
-pub async fn negotiate_socks5_no_auth<S>(mut stream: S) -> Result<(), SocksParseError>
+/// One RFC 1929 username/password pair accepted by a SOCKS inbound.
+#[derive(Clone, PartialEq, Eq)]
+pub struct SocksAccount {
+    user: Zeroizing<Vec<u8>>,
+    pass: Zeroizing<Vec<u8>>,
+}
+
+impl SocksAccount {
+    /// Returns `None` unless both values contain 1..=255 bytes.
+    pub fn new(user: &[u8], pass: &[u8]) -> Option<Self> {
+        let valid = |value: &[u8]| (1..=MAX_SOCKS_CREDENTIAL_LENGTH).contains(&value.len());
+        (valid(user) && valid(pass)).then(|| Self {
+            user: Zeroizing::new(user.to_vec()),
+            pass: Zeroizing::new(pass.to_vec()),
+        })
+    }
+
+    /// Compares both halves in constant time and always checks both.
+    fn matches(&self, user: &[u8], pass: &[u8]) -> bool {
+        use aws_lc_rs::constant_time::verify_slices_are_equal;
+        let user_matches = verify_slices_are_equal(&self.user, user).is_ok();
+        let pass_matches = verify_slices_are_equal(&self.pass, pass).is_ok();
+        user_matches & pass_matches
+    }
+}
+
+impl fmt::Debug for SocksAccount {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("SocksAccount")
+            .field("user", &"<redacted>")
+            .field("pass", &"<redacted>")
+            .finish()
+    }
+}
+
+/// Authentication required by a SOCKS inbound.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum SocksInboundAuth {
+    #[default]
+    NoAuth,
+    /// RFC 1929 username/password; the list is never empty when built by the parser.
+    Password(Vec<SocksAccount>),
+}
+
+impl SocksInboundAuth {
+    pub fn requires_password(&self) -> bool {
+        matches!(self, Self::Password(_))
+    }
+}
+
+pub async fn negotiate_socks5_no_auth<S>(stream: S) -> Result<(), SocksParseError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    negotiate_socks5(stream, &SocksInboundAuth::NoAuth).await
+}
+
+/// Runs SOCKS5 method selection and, for [`SocksInboundAuth::Password`], the
+/// RFC 1929 sub-negotiation. Only the method matching `auth` is ever selected.
+pub async fn negotiate_socks5<S>(
+    mut stream: S,
+    auth: &SocksInboundAuth,
+) -> Result<(), SocksParseError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -70,19 +149,82 @@ where
         .await
         .map_err(|_| SocksParseError::Io)?;
 
-    if methods.contains(&0) {
+    let wanted = match auth {
+        SocksInboundAuth::NoAuth => METHOD_NO_AUTH,
+        SocksInboundAuth::Password(_) => METHOD_PASSWORD,
+    };
+    if !methods.contains(&wanted) {
         stream
-            .write_all(&[5, 0])
+            .write_all(&[5, METHOD_NONE_ACCEPTABLE])
             .await
             .map_err(|_| SocksParseError::Io)?;
+        return Err(SocksParseError::NoAcceptableMethods);
+    }
+    stream
+        .write_all(&[5, wanted])
+        .await
+        .map_err(|_| SocksParseError::Io)?;
+
+    match auth {
+        SocksInboundAuth::NoAuth => Ok(()),
+        SocksInboundAuth::Password(accounts) => verify_password(&mut stream, accounts).await,
+    }
+}
+
+/// RFC 1929: `VER=1 | ULEN | UNAME | PLEN | PASSWD`, answered with `VER=1 | STATUS`.
+async fn verify_password<S>(
+    stream: &mut S,
+    accounts: &[SocksAccount],
+) -> Result<(), SocksParseError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let mut version = [0; 1];
+    stream
+        .read_exact(&mut version)
+        .await
+        .map_err(|_| SocksParseError::Io)?;
+    if version[0] != PASSWORD_AUTH_VERSION {
+        let _ = stream
+            .write_all(&[PASSWORD_AUTH_VERSION, PASSWORD_AUTH_FAILURE])
+            .await;
+        return Err(SocksParseError::UnsupportedAuthVersion(version[0]));
+    }
+    let user = read_credential(stream).await?;
+    let pass = read_credential(stream).await?;
+    let accepted = accounts.iter().fold(false, |accepted, account| {
+        accepted | account.matches(&user, &pass)
+    });
+    let status = if accepted {
+        PASSWORD_AUTH_SUCCESS
+    } else {
+        PASSWORD_AUTH_FAILURE
+    };
+    stream
+        .write_all(&[PASSWORD_AUTH_VERSION, status])
+        .await
+        .map_err(|_| SocksParseError::Io)?;
+    if accepted {
         Ok(())
     } else {
-        stream
-            .write_all(&[5, 0xff])
-            .await
-            .map_err(|_| SocksParseError::Io)?;
-        Err(SocksParseError::NoAcceptableMethods)
+        Err(SocksParseError::AuthenticationFailed)
     }
+}
+
+async fn read_credential<R: AsyncRead + Unpin>(
+    reader: &mut R,
+) -> Result<Zeroizing<Vec<u8>>, SocksParseError> {
+    let mut length = [0; 1];
+    reader
+        .read_exact(&mut length)
+        .await
+        .map_err(|_| SocksParseError::Io)?;
+    let mut value = Zeroizing::new(vec![0; usize::from(length[0])]);
+    reader
+        .read_exact(&mut value)
+        .await
+        .map_err(|_| SocksParseError::Io)?;
+    Ok(value)
 }
 
 pub async fn parse_socks5_request_message<R: AsyncRead + Unpin>(

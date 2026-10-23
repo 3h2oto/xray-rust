@@ -102,6 +102,39 @@
       }
     },
     {
+      "name": "socks-password",
+      "accepted": true,
+      "config": {
+        "inbounds": [
+          {
+            "tag": "socks-in",
+            "protocol": "socks",
+            "listen": "127.0.0.1",
+            "port": 1080,
+            "settings": {
+              "auth": "password",
+              "accounts": [
+                {
+                  "user": "synthetic-user",
+                  "pass": "synthetic-pass"
+                }
+              ],
+              "udp": true
+            }
+          }
+        ],
+        "outbounds": [
+          {
+            "protocol": "freedom",
+            "tag": "direct"
+          }
+        ]
+      },
+      "objects": {
+        "SOCKS_ACCOUNT": "/inbounds/0/settings/accounts/0"
+      }
+    },
+    {
       "name": "dns-policy",
       "config": {
         "dns": {
@@ -994,12 +1027,47 @@
       }
     },
     {
-      "name": "authenticated-socks",
+      "name": "password-socks-without-accounts",
+      "accepted": false,
+      "errorPath": "$.inbounds[0].settings.accounts",
+      "base": "loopback-policy",
+      "set": {
+        "/inbounds/0/settings/auth": "password"
+      }
+    },
+    {
+      "name": "unknown-socks-auth",
       "accepted": false,
       "errorPath": "$.inbounds[0].settings.auth",
       "base": "loopback-policy",
       "set": {
-        "/inbounds/0/settings/auth": "password"
+        "/inbounds/0/settings/auth": "gssapi"
+      }
+    },
+    {
+      "name": "socks-accounts-with-noauth",
+      "accepted": false,
+      "errorPath": "$.inbounds[0].settings.accounts",
+      "base": "loopback-policy",
+      "set": {
+        "/inbounds/0/settings/accounts": [
+          {
+            "user": "synthetic-user",
+            "pass": "synthetic-pass"
+          }
+        ]
+      }
+    },
+    {
+      "name": "socks-account-empty-pass",
+      "accepted": false,
+      "errorPath": "$.inbounds[0].settings.accounts[0]",
+      "base": "socks-password",
+      "set": {
+        "/inbounds/0/settings/accounts/0": {
+          "user": "synthetic-user",
+          "pass": ""
+        }
       }
     },
     {

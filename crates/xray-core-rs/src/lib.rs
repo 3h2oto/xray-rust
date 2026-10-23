@@ -1137,7 +1137,7 @@ impl Core {
                     tproxy_inbounds.push((socks::tproxy::bind(inbound, settings)?, inbound));
                     continue;
                 }
-                InboundProtocol::Socks | InboundProtocol::Http => {}
+                InboundProtocol::Socks(_) | InboundProtocol::Http => {}
                 InboundProtocol::Tun => {
                     tun_inbounds.push((
                         inbound.tag.clone(),
@@ -1196,8 +1196,9 @@ impl Core {
             let dns_resolvers = runtime_dns_resolvers.clone();
             let transport_dialer = Arc::clone(&self.transport_dialer);
             let task = match protocol {
-                InboundProtocol::Socks => tokio::spawn(socks::serve_socks_listener(
+                InboundProtocol::Socks(auth) => tokio::spawn(socks::serve_socks_listener(
                     listener,
+                    Arc::new(auth),
                     inbound_tag,
                     Arc::clone(&config),
                     Arc::clone(&outbound_router),

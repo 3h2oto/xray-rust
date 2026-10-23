@@ -902,8 +902,90 @@ fn parses_socks_inbound_with_udp_enabled() {
 
     let parsed = parse_xray_json(raw).expect("config should parse");
 
-    assert_eq!(parsed.config.inbounds[0].protocol, InboundProtocol::Socks);
+    assert_eq!(
+        parsed.config.inbounds[0].protocol,
+        InboundProtocol::Socks(Default::default())
+    );
     assert!(parsed.diagnostics.is_empty());
+}
+
+#[test]
+fn parses_socks_inbound_password_accounts_without_leaking_them() {
+    let raw = r#"{
+        "inbounds": [
+            {
+              "tag": "socks-in",
+              "protocol": "socks",
+              "listen": "127.0.0.1",
+              "port": 1080,
+              "settings": {
+                "auth": "password",
+                "accounts": [
+                  { "user": "first-user", "pass": "first-pass" },
+                  { "user": "synthetic-user", "pass": "synthetic-pass" }
+                ],
+                "udp": true
+              }
+            }
+        ],
+        "outbounds": [
+            { "tag": "direct", "protocol": "freedom" }
+        ]
+    }"#;
+
+    let parsed = parse_xray_json(raw).expect("config should parse");
+
+    assert_eq!(
+        parsed.config.inbounds[0].protocol,
+        InboundProtocol::Socks(xray_proxy::inbound::SocksInboundAuth::Password(vec![
+            xray_proxy::inbound::SocksAccount::new(b"first-user", b"first-pass").unwrap(),
+            xray_proxy::inbound::SocksAccount::new(b"synthetic-user", b"synthetic-pass").unwrap(),
+        ]))
+    );
+    assert!(parsed.diagnostics.is_empty());
+    let debug = format!("{:?}", parsed.config);
+    assert!(!debug.contains("synthetic-pass") && !debug.contains("first-pass"));
+}
+
+#[test]
+fn rejects_socks_password_account_limits() {
+    let accounts = |count: usize| {
+        (0..count)
+            .map(|index| format!(r#"{{ "user": "user-{index}", "pass": "synthetic-pass" }}"#))
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    for (accounts, path) in [
+        (accounts(65), "$.inbounds[0].settings.accounts"),
+        (
+            r#"{ "user": "synthetic-user" }"#.to_owned(),
+            "$.inbounds[0].settings.accounts[0]",
+        ),
+        (
+            format!(
+                r#"{{ "user": "synthetic-user", "pass": "{}" }}"#,
+                "p".repeat(256)
+            ),
+            "$.inbounds[0].settings.accounts[0]",
+        ),
+        (
+            r#"{ "user": "synthetic-user", "pass": "synthetic-pass", "level": 0 }"#.to_owned(),
+            "$.inbounds[0].settings.accounts[0].level",
+        ),
+    ] {
+        let raw = format!(
+            r#"{{
+                "inbounds": [{{
+                  "protocol": "socks",
+                  "listen": "127.0.0.1",
+                  "port": 1080,
+                  "settings": {{ "auth": "password", "accounts": [{accounts}] }}
+                }}],
+                "outbounds": [{{ "tag": "direct", "protocol": "freedom" }}]
+            }}"#
+        );
+        assert_parse_error_path(&raw, path);
+    }
 }
 
 #[test]
@@ -1819,10 +1901,26 @@ fn parses_enabled_inbound_sniffing() {
 }
 
 #[test]
-fn rejects_socks_password_auth_with_path() {
+fn rejects_socks_password_auth_without_accounts_with_path() {
     let raw = raw_with_socks_settings(r#""auth": "password""#);
 
+    assert_parse_error_path(&raw, "$.inbounds[0].settings.accounts");
+}
+
+#[test]
+fn rejects_unknown_socks_auth_with_path() {
+    let raw = raw_with_socks_settings(r#""auth": "gssapi""#);
+
     assert_parse_error_path(&raw, "$.inbounds[0].settings.auth");
+}
+
+#[test]
+fn rejects_socks_accounts_that_noauth_would_ignore() {
+    let raw = raw_with_socks_settings(
+        r#""auth": "noauth", "accounts": [{ "user": "synthetic-user", "pass": "synthetic-pass" }]"#,
+    );
+
+    assert_parse_error_path(&raw, "$.inbounds[0].settings.accounts");
 }
 
 #[test]

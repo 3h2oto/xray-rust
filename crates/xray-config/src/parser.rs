@@ -5,6 +5,7 @@ mod hysteria;
 mod noise;
 mod routing;
 mod shadowsocks;
+mod socks;
 mod stream;
 mod tproxy;
 mod trojan;
@@ -634,7 +635,7 @@ impl Parser<'_> {
     fn parse_inbound(&mut self, inbound: &Value, index: usize) -> Option<InboundConfig> {
         let protocol_path = format!("$.inbounds[{index}].protocol");
         let protocol = match self.string_at(inbound, "protocol") {
-            Some("socks") => InboundProtocol::Socks,
+            Some("socks") => InboundProtocol::Socks(self.parse_socks_inbound_auth(inbound, index)),
             Some("http") => InboundProtocol::Http,
             Some("tun") => InboundProtocol::Tun,
             Some("dokodemo-door") => InboundProtocol::Tproxy(self.parse_tproxy(inbound, index)?),
@@ -665,7 +666,7 @@ impl Parser<'_> {
             .to_owned();
         let allow_unauthenticated_lan =
             self.parse_allow_unauthenticated_lan(inbound, index, &protocol);
-        if matches!(protocol, InboundProtocol::Socks | InboundProtocol::Http)
+        if matches!(protocol, InboundProtocol::Socks(_) | InboundProtocol::Http)
             && !is_loopback_listener(&listen)
         {
             if allow_unauthenticated_lan {
@@ -706,7 +707,7 @@ impl Parser<'_> {
         index: usize,
         protocol: &InboundProtocol,
     ) -> bool {
-        if !matches!(protocol, InboundProtocol::Socks | InboundProtocol::Http) {
+        if !matches!(protocol, InboundProtocol::Socks(_) | InboundProtocol::Http) {
             return false;
         }
         let Some(settings) = inbound.get("settings").filter(|value| value.is_object()) else {
@@ -743,7 +744,7 @@ impl Parser<'_> {
         };
 
         match protocol {
-            InboundProtocol::Socks => self.validate_socks_inbound_settings(settings, index),
+            InboundProtocol::Socks(_) => self.validate_socks_inbound_settings(settings, index),
             InboundProtocol::Http => self.validate_http_inbound_settings(settings, index),
             InboundProtocol::Tun | InboundProtocol::Tproxy(_) => {}
         }
@@ -882,20 +883,6 @@ impl Parser<'_> {
         }
 
         self.reject_unknown_fields(settings, &settings_path, &surface::SOCKS_SETTINGS);
-
-        if let Some(auth) =
-            self.optional_string_at(settings, "auth", format!("{settings_path}.auth"))
-        {
-            if auth != "noauth" {
-                self.error(
-                    format!("{settings_path}.auth"),
-                    format!("unsupported socks auth `{auth}`"),
-                );
-            }
-        }
-
-        self.reject_non_empty_array(settings, "accounts", format!("{settings_path}.accounts"));
-
         self.optional_bool_at(settings, "udp", format!("{settings_path}.udp"));
     }
 
