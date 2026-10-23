@@ -133,7 +133,14 @@ impl SocksOutbound {
                 .copied()
                 .filter(|candidate| candidate.is_ipv4() == ipv4)
                 .collect();
-            let socket = bind_relay_socket(ipv4, dialer)?;
+            // A host without this family (e.g. no IPv6) falls through to the next one.
+            let socket = match bind_relay_socket(ipv4, dialer) {
+                Ok(socket) => socket,
+                Err(error) => {
+                    last_error = Some(error.into());
+                    continue;
+                }
+            };
             let mut control = match self.0.carrier.open(&family, &download, dialer).await {
                 Ok(control) => control,
                 Err(error) => {
