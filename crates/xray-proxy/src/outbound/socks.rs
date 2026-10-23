@@ -122,6 +122,12 @@ where
     read_reply(stream).await
 }
 
+/// Checks that `target` can be sent in a CONNECT request, so callers can fail
+/// before resolving or dialing the proxy server.
+pub fn validate_connect_target(target: &Target) -> Result<(), SocksClientError> {
+    encode_connect_request(target).map(drop)
+}
+
 /// `VER=5 | CMD=CONNECT | RSV | ATYP | DST.ADDR | DST.PORT`, built only after
 /// the target is validated so that an invalid target performs no I/O.
 fn encode_connect_request(target: &Target) -> Result<Vec<u8>, SocksClientError> {

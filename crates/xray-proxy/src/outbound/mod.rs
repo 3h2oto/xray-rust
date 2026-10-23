@@ -2,4 +2,4 @@
 
 mod socks;
 
-pub use socks::{socks5_connect, SocksClientError};
+pub use socks::{socks5_connect, validate_connect_target, SocksClientError};
