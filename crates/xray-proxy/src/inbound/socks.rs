@@ -80,6 +80,16 @@ impl SocksAccount {
         })
     }
 
+    /// The username, 1..=255 bytes. It is a credential: never log it.
+    pub fn user(&self) -> &[u8] {
+        &self.user
+    }
+
+    /// The password, 1..=255 bytes. It is a credential: never log it.
+    pub fn pass(&self) -> &[u8] {
+        &self.pass
+    }
+
     /// Compares both halves in constant time and always checks both.
     fn matches(&self, user: &[u8], pass: &[u8]) -> bool {
         use aws_lc_rs::constant_time::verify_slices_are_equal;
@@ -255,62 +265,7 @@ pub async fn parse_socks5_request_message<R: AsyncRead + Unpin>(
         SocksCommand::Connect => Network::Tcp,
         SocksCommand::UdpAssociate => Network::Udp,
     };
-    let address_type = head[3];
-    let (addr, port) = match address_type {
-        1 => {
-            let mut raw = [0; 6];
-            reader
-                .read_exact(&mut raw)
-                .await
-                .map_err(|_| SocksParseError::Io)?;
-            let port = u16::from_be_bytes([raw[4], raw[5]]);
-            (
-                TargetAddr::Ip(IpAddr::V4(Ipv4Addr::from([raw[0], raw[1], raw[2], raw[3]]))),
-                port,
-            )
-        }
-        3 => {
-            let mut len = [0; 1];
-            reader
-                .read_exact(&mut len)
-                .await
-                .map_err(|_| SocksParseError::Io)?;
-            let len = usize::from(len[0]);
-            if len == 0 {
-                return Err(SocksParseError::InvalidDomain);
-            }
-
-            let mut domain_and_port = vec![0; len + 2];
-            reader
-                .read_exact(&mut domain_and_port)
-                .await
-                .map_err(|_| SocksParseError::Io)?;
-            let port = u16::from_be_bytes([domain_and_port[len], domain_and_port[len + 1]]);
-            (
-                TargetAddr::Domain(
-                    String::from_utf8(domain_and_port[..len].to_vec())
-                        .map_err(|_| SocksParseError::InvalidDomain)?,
-                ),
-                port,
-            )
-        }
-        4 => {
-            let mut raw = [0; 18];
-            reader
-                .read_exact(&mut raw)
-                .await
-                .map_err(|_| SocksParseError::Io)?;
-            let port = u16::from_be_bytes([raw[16], raw[17]]);
-            (
-                TargetAddr::Ip(IpAddr::V6(Ipv6Addr::from([
-                    raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7], raw[8], raw[9],
-                    raw[10], raw[11], raw[12], raw[13], raw[14], raw[15],
-                ]))),
-                port,
-            )
-        }
-        other => return Err(SocksParseError::UnsupportedAddressType(other)),
-    };
+    let (addr, port) = read_socks5_address(&mut reader, head[3]).await?;
 
     Ok(SocksRequest {
         command,
@@ -413,7 +368,81 @@ pub fn parse_socks5_udp_datagram(raw: &[u8]) -> Result<SocksUdpDatagram, SocksPa
     })
 }
 
-fn encode_target_addr(output: &mut Vec<u8>, addr: &TargetAddr) -> Result<(), SocksParseError> {
+/// Why a SOCKS5 `ADDR | PORT` field could not be read.
+pub(crate) enum AddressReadError {
+    Io(std::io::Error),
+    /// A zero-length or non-UTF-8 domain.
+    InvalidDomain,
+    UnsupportedType(u8),
+}
+
+impl From<AddressReadError> for SocksParseError {
+    fn from(error: AddressReadError) -> Self {
+        match error {
+            AddressReadError::Io(_) => Self::Io,
+            AddressReadError::InvalidDomain => Self::InvalidDomain,
+            AddressReadError::UnsupportedType(other) => Self::UnsupportedAddressType(other),
+        }
+    }
+}
+
+/// Reads the `ADDR | PORT` that follows an already-read `ATYP`. Only exact
+/// reads are used, so nothing past the port is consumed. Shared by the request
+/// parser and the client-side reply reader.
+pub(crate) async fn read_socks5_address<R: AsyncRead + Unpin>(
+    reader: &mut R,
+    address_type: u8,
+) -> Result<(TargetAddr, u16), AddressReadError> {
+    match address_type {
+        1 => {
+            let mut raw = [0; 6];
+            reader
+                .read_exact(&mut raw)
+                .await
+                .map_err(AddressReadError::Io)?;
+            let [a, b, c, d, high, low] = raw;
+            Ok((
+                TargetAddr::Ip(IpAddr::V4(Ipv4Addr::new(a, b, c, d))),
+                u16::from_be_bytes([high, low]),
+            ))
+        }
+        3 => {
+            let len = usize::from(reader.read_u8().await.map_err(AddressReadError::Io)?);
+            if len == 0 {
+                return Err(AddressReadError::InvalidDomain);
+            }
+            let mut domain_and_port = vec![0; len + 2];
+            reader
+                .read_exact(&mut domain_and_port)
+                .await
+                .map_err(AddressReadError::Io)?;
+            let port = u16::from_be_bytes([domain_and_port[len], domain_and_port[len + 1]]);
+            domain_and_port.truncate(len);
+            let domain =
+                String::from_utf8(domain_and_port).map_err(|_| AddressReadError::InvalidDomain)?;
+            Ok((TargetAddr::Domain(domain), port))
+        }
+        4 => {
+            let mut raw = [0; 18];
+            reader
+                .read_exact(&mut raw)
+                .await
+                .map_err(AddressReadError::Io)?;
+            let mut octets = [0; 16];
+            octets.copy_from_slice(&raw[..16]);
+            Ok((
+                TargetAddr::Ip(IpAddr::V6(Ipv6Addr::from(octets))),
+                u16::from_be_bytes([raw[16], raw[17]]),
+            ))
+        }
+        other => Err(AddressReadError::UnsupportedType(other)),
+    }
+}
+
+pub(crate) fn encode_target_addr(
+    output: &mut Vec<u8>,
+    addr: &TargetAddr,
+) -> Result<(), SocksParseError> {
     match addr {
         TargetAddr::Ip(IpAddr::V4(addr)) => {
             output.push(1);
