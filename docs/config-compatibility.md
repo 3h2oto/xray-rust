@@ -296,8 +296,12 @@ each value 1–255 UTF-8 bytes, and makes the inbound offer only RFC 1929
 username/password; a client offering only no-auth receives `0xFF`. Credentials
 are compared in constant time and redacted from `Debug` output and diagnostics.
 RFC 1929 authenticates only the TCP control connection, so a password-protected
-`UDP ASSOCIATE` accepts datagrams only from the address declared in the request,
-or, when the request declares `0.0.0.0:0`, from the first sender. Xray-core
+`UDP ASSOCIATE` accepts datagrams only from the client endpoint declared in the
+request. A request that leaves the port unset, such as `0.0.0.0:0`, is refused
+with a general failure reply and no relay socket: every local process shares the
+loopback IP, so nothing would tie the first sender to the login. This differs
+from Xray-core, which pins such an association to the first sender from the
+control connection's IP. Xray-core
 only consults `accounts` under `password`, so `accounts` with `noauth` is
 rejected rather than leaving an inbound unauthenticated by accident. The loopback-only listener
 rule and `allowUnauthenticatedLan` are unchanged.

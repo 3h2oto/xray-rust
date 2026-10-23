@@ -2146,6 +2146,16 @@ async fn socks_password_inbound_tunnels_only_after_rfc1929_success() {
 }
 
 #[tokio::test]
+async fn socks_password_udp_association_refuses_undeclared_client_endpoint() {
+    timeout(
+        Duration::from_secs(2),
+        run_socks_password_udp_undeclared_client_scenario(),
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn socks_password_udp_association_ignores_other_local_senders() {
     timeout(
         Duration::from_secs(2),
@@ -3809,6 +3819,7 @@ async fn run_socks_password_udp_client_lock_scenario() {
     );
     let mut response = vec![0; 2048];
 
+    intruder.send_to(&[0xff; 3], relay_addr).await.unwrap();
     let foreign = encode_socks5_udp_datagram(&target, b"foreign sender").unwrap();
     intruder.send_to(&foreign, relay_addr).await.unwrap();
     assert!(
@@ -3830,6 +3841,33 @@ async fn run_socks_password_udp_client_lock_scenario() {
     drop(control);
     core.stop().await.unwrap();
     echo_handle.abort();
+}
+
+async fn run_socks_password_udp_undeclared_client_scenario() {
+    let mut core = Core::new(runtime_config_with_password_socks_inbound()).unwrap();
+    core.start().await.unwrap();
+    let socks_addr = core.inbound_addr(Some("socks-in")).unwrap();
+
+    let mut control = TcpStream::connect(socks_addr).await.unwrap();
+    assert_eq!(
+        socks5_password_login(&mut control, b"synthetic-user", b"synthetic-pass").await,
+        0
+    );
+    control
+        .write_all(&[5, 3, 0, 1, 0, 0, 0, 0, 0, 0])
+        .await
+        .unwrap();
+    let mut reply = [0; 10];
+    control.read_exact(&mut reply).await.unwrap();
+    assert_eq!(
+        reply,
+        [5, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+        "an association without a declared client endpoint must not expose a relay"
+    );
+    let mut byte = [0; 1];
+    assert_eq!(control.read(&mut byte).await.unwrap(), 0);
+
+    core.stop().await.unwrap();
 }
 
 async fn run_socks_policy_handshake_timeout_scenario() {

@@ -12,7 +12,8 @@ long-term supported release series.
 
 - Add RFC 1929 username/password authentication to the SOCKS inbound
   (`"auth": "password"` with `accounts`). Password-protected UDP associations
-  accept datagrams only from the declared or first client address, and
+  accept datagrams only from the declared client endpoint and refuse requests
+  that leave the port unset, such as `0.0.0.0:0`, and
   `accounts` under `noauth` are now rejected instead of ignored (#78).
 
 ## 0.8.1 - 2026-10-18
