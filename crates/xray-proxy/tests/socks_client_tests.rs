@@ -1,13 +1,17 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use xray_proxy::inbound::{
-    negotiate_socks5, parse_socks5_request_message, write_socks5_success, SocksAccount,
-    SocksCommand, SocksInboundAuth, SocksParseError,
+    negotiate_socks5, parse_socks5_request_message, parse_socks5_udp_datagram,
+    write_socks5_success, write_socks5_success_with_bind, SocksAccount, SocksCommand,
+    SocksInboundAuth, SocksParseError,
 };
-use xray_proxy::outbound::{socks5_connect, SocksClientError};
+use xray_proxy::outbound::{
+    decode_socks5_udp_reply, encode_socks5_udp_request, socks5_connect, socks5_udp_associate,
+    SocksClientError, SocksUdpDrop, MAX_SOCKS_UDP_DATAGRAM_LENGTH,
+};
 use xray_routing::{Network, Target, TargetAddr};
 
 const USER: &[u8] = b"synthetic-user";
@@ -507,4 +511,294 @@ fn account_exposes_its_credentials_without_debug_leaks() {
     assert_eq!(account.user(), USER);
     assert_eq!(account.pass(), PASS);
     assert!(!format!("{account:?}").contains("synthetic"));
+}
+
+// UDP ASSOCIATE
+
+const SERVER: IpAddr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7));
+
+fn client_endpoint() -> SocketAddr {
+    SocketAddr::from((Ipv4Addr::UNSPECIFIED, 40_000))
+}
+
+fn udp(addr: TargetAddr, port: u16) -> Target {
+    Target::new(addr, port, Network::Udp)
+}
+
+/// `VER=5 | REP=0 | RSV | ATYP | BND.ADDR | BND.PORT` for a UDP relay.
+fn bound_reply(address: &[u8], port: u16) -> Vec<u8> {
+    concat(&[&[5, 0, 0], address, &port.to_be_bytes()])
+}
+
+async fn associate(
+    server_bytes: Vec<u8>,
+    account: Option<&SocksAccount>,
+    client: SocketAddr,
+) -> (Result<SocketAddr, SocksClientError>, ScriptedIo) {
+    let mut stream = ScriptedIo::new(server_bytes);
+    let result = socks5_udp_associate(&mut stream, account, client, SERVER).await;
+    (result, stream)
+}
+
+#[tokio::test]
+async fn udp_associate_declares_the_client_socket_endpoint() {
+    let relay = bound_reply(&[1, 198, 51, 100, 1], 8080);
+    let cases = [
+        (
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 40_000)),
+            vec![5, 3, 0, 1, 127, 0, 0, 1, 0x9c, 0x40],
+        ),
+        (client_endpoint(), vec![5, 3, 0, 1, 0, 0, 0, 0, 0x9c, 0x40]),
+        (
+            SocketAddr::from((Ipv6Addr::UNSPECIFIED, 40_000)),
+            concat(&[&[5, 3, 0, 4], &[0; 16], &[0x9c, 0x40]]),
+        ),
+        (
+            SocketAddr::from((Ipv4Addr::LOCALHOST.to_ipv6_mapped(), 40_000)),
+            vec![5, 3, 0, 1, 127, 0, 0, 1, 0x9c, 0x40],
+        ),
+    ];
+    for (client, request) in cases {
+        let (result, stream) = associate(concat(&[&[5, 0], &relay]), None, client).await;
+
+        assert_eq!(result, Ok(SocketAddr::from(([198, 51, 100, 1], 8080))));
+        assert_eq!(stream.output, concat(&[&[5, 1, 0], &request]));
+        assert_eq!(stream.write_calls, 2);
+        assert!(stream.unread().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn udp_associate_authenticates_before_the_request() {
+    let account = account();
+    let relay = bound_reply(&[1, 198, 51, 100, 1], 8080);
+    let (result, stream) = associate(
+        concat(&[&[5, 2], &[1, 0], &relay]),
+        Some(&account),
+        client_endpoint(),
+    )
+    .await;
+
+    assert_eq!(result, Ok(SocketAddr::from(([198, 51, 100, 1], 8080))));
+    let request = [5, 3, 0, 1, 0, 0, 0, 0, 0x9c, 0x40];
+    assert_eq!(
+        stream.output,
+        concat(&[&[5, 1, 2], &password_message(), &request])
+    );
+    assert_eq!(stream.write_calls, 3);
+}
+
+#[tokio::test]
+async fn udp_associate_resolves_the_relay_address() {
+    let mut unspecified_v6 = vec![4];
+    unspecified_v6.extend_from_slice(&[0; 16]);
+    let mut mapped = vec![4];
+    mapped.extend_from_slice(&Ipv4Addr::new(198, 51, 100, 2).to_ipv6_mapped().octets());
+    let documentation_v6 = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
+    let mut ipv6 = vec![4];
+    ipv6.extend_from_slice(&documentation_v6.octets());
+    let literal = concat(&[&[3, 12], b"198.51.100.3"]);
+
+    let cases = [
+        // An unspecified bound address means the server itself, as in Xray.
+        (vec![1, 0, 0, 0, 0], SocketAddr::new(SERVER, 1080)),
+        (unspecified_v6, SocketAddr::new(SERVER, 1080)),
+        (mapped, SocketAddr::from(([198, 51, 100, 2], 1080))),
+        (ipv6, SocketAddr::from((documentation_v6, 1080))),
+        (literal, SocketAddr::from(([198, 51, 100, 3], 1080))),
+    ];
+    for (address, expected) in cases {
+        let (result, stream) = associate(
+            concat(&[&[5, 0], &bound_reply(&address, 1080)]),
+            None,
+            client_endpoint(),
+        )
+        .await;
+
+        assert_eq!(result, Ok(expected), "{address:?}");
+        assert!(stream.unread().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn udp_associate_rejects_unusable_relays_and_refusals() {
+    let cases = [
+        (
+            bound_reply(&concat(&[&[3, 11], b"example.com"]), 1080),
+            SocksClientError::InvalidRelayAddress,
+        ),
+        (
+            bound_reply(&[1, 198, 51, 100, 1], 0),
+            SocksClientError::InvalidRelayAddress,
+        ),
+        (
+            vec![5, 7, 0, 1, 0, 0, 0, 0, 0, 0],
+            SocksClientError::RequestRejected(7),
+        ),
+        (
+            bound_reply(&[9, 0, 0, 0, 0], 1080),
+            SocksClientError::UnsupportedAddressType(9),
+        ),
+    ];
+    for (reply, expected) in cases {
+        let (result, _) = associate(concat(&[&[5, 0], &reply]), None, client_endpoint()).await;
+
+        assert_eq!(result, Err(expected));
+    }
+}
+
+#[tokio::test]
+async fn udp_associate_round_trips_against_the_inbound() {
+    let account = account();
+    let client = SocketAddr::from((Ipv4Addr::LOCALHOST, 40_000));
+    let relay = SocketAddr::from(([198, 51, 100, 9], 5353));
+    let (mut client_io, mut server_io) = tokio::io::duplex(1024);
+    let auth = SocksInboundAuth::Password(vec![account.clone()]);
+    let server_task = tokio::spawn(async move {
+        negotiate_socks5(&mut server_io, &auth).await.unwrap();
+        let request = parse_socks5_request_message(&mut server_io).await.unwrap();
+        write_socks5_success_with_bind(&mut server_io, relay)
+            .await
+            .unwrap();
+        request
+    });
+
+    let result = socks5_udp_associate(&mut client_io, Some(&account), client, SERVER).await;
+
+    assert_eq!(result, Ok(relay));
+    let request = server_task.await.unwrap();
+    assert_eq!(request.command, SocksCommand::UdpAssociate);
+    assert_eq!(
+        request.target,
+        udp(TargetAddr::Ip(client.ip()), client.port())
+    );
+}
+
+#[test]
+fn udp_requests_frame_each_target_type() {
+    let payload = b"datagram";
+    let mut ipv6 = vec![0, 0, 0, 4, 0x20, 0x01, 0x0d, 0xb8];
+    ipv6.extend_from_slice(&[0; 11]);
+    ipv6.extend_from_slice(&[0x10, 0x20, 0xfb]);
+    let mut domain = vec![0, 0, 0, 3, 11];
+    domain.extend_from_slice(b"example.com");
+    domain.extend_from_slice(&[0, 80]);
+    let cases = [
+        (ipv4_target(), vec![0, 0, 0, 1, 192, 0, 2, 10, 0x01, 0xbb]),
+        (ipv6_target(), ipv6),
+        (domain_target(), domain),
+        (
+            tcp(
+                TargetAddr::Ip(IpAddr::V6(Ipv4Addr::new(192, 0, 2, 10).to_ipv6_mapped())),
+                443,
+            ),
+            vec![0, 0, 0, 1, 192, 0, 2, 10, 0x01, 0xbb],
+        ),
+    ];
+    for (target, header) in cases {
+        let target = udp(target.addr, target.port);
+
+        let datagram = encode_socks5_udp_request(&target, payload).unwrap();
+
+        assert_eq!(datagram, concat(&[&header, payload]));
+        let parsed = parse_socks5_udp_datagram(&datagram).unwrap();
+        assert_eq!(parsed.payload.as_ref(), payload);
+    }
+}
+
+#[test]
+fn oversized_udp_payload_is_an_error_instead_of_an_empty_datagram() {
+    let target = udp(TargetAddr::Ip(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10))), 53);
+    // 10 header bytes for an IPv4 target.
+    let largest = vec![7; MAX_SOCKS_UDP_DATAGRAM_LENGTH - 10];
+
+    let datagram = encode_socks5_udp_request(&target, &largest).unwrap();
+    assert_eq!(datagram.len(), MAX_SOCKS_UDP_DATAGRAM_LENGTH);
+    assert_eq!(
+        encode_socks5_udp_request(&target, &[largest.as_slice(), &[7]].concat()),
+        Err(SocksClientError::UdpPayloadTooLarge)
+    );
+}
+
+#[test]
+fn udp_requests_validate_the_target() {
+    let cases = [
+        (
+            udp(TargetAddr::Ip(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10))), 0),
+            SocksClientError::InvalidTargetPort,
+        ),
+        (
+            udp(TargetAddr::Domain(String::new()), 53),
+            SocksClientError::InvalidTargetDomain,
+        ),
+        (
+            udp(TargetAddr::Domain("a".repeat(256)), 53),
+            SocksClientError::InvalidTargetDomain,
+        ),
+        (
+            udp(TargetAddr::Domain("bad host".to_owned()), 53),
+            SocksClientError::InvalidTargetDomain,
+        ),
+    ];
+    for (target, expected) in cases {
+        assert_eq!(encode_socks5_udp_request(&target, b"x"), Err(expected));
+    }
+}
+
+#[test]
+fn udp_replies_from_the_relay_are_decoded() {
+    let relay = SocketAddr::from(([198, 51, 100, 1], 8080));
+    let raw = [0, 0, 0, 1, 192, 0, 2, 10, 0, 53, b'o', b'k'];
+
+    for source in [
+        relay,
+        SocketAddr::from((Ipv4Addr::new(198, 51, 100, 1).to_ipv6_mapped(), 8080)),
+    ] {
+        let datagram = decode_socks5_udp_reply(relay, source, &raw).unwrap();
+
+        assert_eq!(
+            datagram.target,
+            udp(TargetAddr::Ip(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10))), 53)
+        );
+        assert_eq!(datagram.payload.as_ref(), b"ok");
+    }
+}
+
+#[test]
+fn udp_replies_that_are_foreign_fragmented_or_malformed_are_dropped() {
+    let relay = SocketAddr::from(([198, 51, 100, 1], 8080));
+    let valid = [0, 0, 0, 1, 192, 0, 2, 10, 0, 53, b'o', b'k'];
+    let cases: [(SocketAddr, &[u8], SocksUdpDrop); 8] = [
+        (
+            SocketAddr::from(([198, 51, 100, 1], 8081)),
+            &valid,
+            SocksUdpDrop::ForeignSource,
+        ),
+        (
+            SocketAddr::from(([198, 51, 100, 2], 8080)),
+            &valid,
+            SocksUdpDrop::ForeignSource,
+        ),
+        (
+            relay,
+            &[0, 0, 1, 1, 192, 0, 2, 10, 0, 53, b'o', b'k'],
+            SocksUdpDrop::Fragmented,
+        ),
+        (relay, &[0, 0], SocksUdpDrop::Malformed),
+        (relay, &[0, 0, 0, 1, 192, 0, 2], SocksUdpDrop::Malformed),
+        (relay, &[0, 0, 0, 9, 0, 0], SocksUdpDrop::Malformed),
+        (relay, &[0, 0, 0, 3, 0, 0, 53], SocksUdpDrop::Malformed),
+        (
+            relay,
+            &[1, 0, 0, 1, 192, 0, 2, 10, 0, 53],
+            SocksUdpDrop::Malformed,
+        ),
+    ];
+    for (source, raw, expected) in cases {
+        assert_eq!(
+            decode_socks5_udp_reply(relay, source, raw),
+            Err(expected),
+            "{raw:?} from {source}"
+        );
+    }
 }

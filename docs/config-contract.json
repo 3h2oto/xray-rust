@@ -877,7 +877,7 @@
         "sendThrough"
       ],
       "id": "OUTBOUND",
-      "notes": "freedom, blackhole, dns, VLESS, Trojan, Shadowsocks 2022, VMess AEAD, SOCKS5 (TCP CONNECT), Hysteria 2 and a bounded WireGuard client subset. sendThrough is rejected whenever present, including null. First outbound is the default. Tag graph validation is a later core compilation step."
+      "notes": "freedom, blackhole, dns, VLESS, Trojan, Shadowsocks 2022, VMess AEAD, SOCKS5 (CONNECT and UDP ASSOCIATE), Hysteria 2 and a bounded WireGuard client subset. sendThrough is rejected whenever present, including null. First outbound is the default. Tag graph validation is a later core compilation step."
     },
     {
       "context": "$.policy",

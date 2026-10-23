@@ -2,4 +2,7 @@
 
 mod socks;
 
-pub use socks::{socks5_connect, validate_connect_target, SocksClientError};
+pub use socks::{
+    decode_socks5_udp_reply, encode_socks5_udp_request, socks5_connect, socks5_udp_associate,
+    validate_connect_target, SocksClientError, SocksUdpDrop, MAX_SOCKS_UDP_DATAGRAM_LENGTH,
+};

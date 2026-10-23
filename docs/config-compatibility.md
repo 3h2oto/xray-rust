@@ -525,10 +525,28 @@ fails closed on a lone `user` or `pass`, an empty or oversized value, and a
 `users` entry without credentials. Credentials are redacted from the parsed
 model's debug output and are never echoed in diagnostics.
 
-- Only TCP `CONNECT` is supported. UDP routed to a SOCKS outbound is refused
-  rather than sent through `UDP ASSOCIATE`: a SOCKS `UDP ASSOCIATE` or TUN UDP
-  flow that selects it is dropped, and DNS queries over UDP through it fail, so
-  use `tcp://` DNS servers on such a route.
+- TCP uses `CONNECT`. UDP from SOCKS, TUN and DNS flows uses `UDP ASSOCIATE`
+  (RFC 1928 section 7), one association per flow, with the same flow limits
+  and idle timeout as the other UDP outbounds. The control connection goes
+  through `streamSettings`, so `tls` protects it, while the datagrams travel
+  over a plain UDP socket to the relay, protected like the other native UDP
+  outbounds. As in Xray, they are never encrypted, even with `tls`.
+- The request declares the relay socket's real port with an unspecified IP,
+  where Xray always sends `0.0.0.0:0`. Servers that admit only the declared
+  client endpoint, such as a password-protected xray-rust SOCKS inbound, pair
+  that port with the control connection's source IP; the control connection
+  and the socket therefore use the same address family, trying the server's
+  resolved families in order. A relay address of `0.0.0.0` or `::` means the
+  server's address, as in Xray. A bound domain is accepted only as an IP
+  literal, and a relay of the other address family, a zero relay port or a
+  rejected request fails the flow.
+- The flow ends when the server closes the control connection; Xray does not
+  notice that and waits for its idle timer. Received datagrams that are
+  malformed, fragmented (`FRAG` ≠ 0) or not from the relay are dropped one by
+  one, while Xray ends the whole association on the first bad datagram. A
+  datagram whose header and payload exceed 8 KiB, the buffer Xray reads relay
+  datagrams into, is refused with an error that ends the flow, instead of the
+  empty datagram Xray sends.
 - Enabled `mux` fails parsing; SOCKS is not a Mux carrier.
 - `streamSettings` may select only the `raw`/`tcp` network, with `security`
   `none` or `tls` (SOCKS over TLS). Other networks and REALITY fail parsing,
@@ -539,8 +557,9 @@ model's debug output and are never echoed in diagnostics.
   `tls`, or keep a credentialed proxy on loopback or a trusted network.
 - Chaining uses the `proxySettings` subset above with `"transportLayer": true`.
   A SOCKS outbound can be the hop that carries another TCP outbound, and it can
-  itself be carried over another outbound's TCP carrier. Chained UDP/DNS and
-  REALITY inside a chain stay rejected. `streamSettings.sockopt.dialerProxy`
+  itself be carried over another outbound's TCP carrier. Chained UDP/DNS,
+  including UDP through a chained SOCKS outbound, and REALITY inside a chain
+  stay rejected. `streamSettings.sockopt.dialerProxy`
   keeps its fragment-only form and cannot route through another proxy.
 
 ### WebSocket and HTTPUpgrade

@@ -374,6 +374,7 @@ pub enum UdpOutbound {
     Freedom,
     Vless(Box<VlessTcpOutbound>),
     Trojan(TrojanOutbound),
+    Socks(SocksOutbound),
     Vmess(VmessOutbound),
     Shadowsocks2022(Shadowsocks2022Outbound),
     Hysteria(HysteriaOutbound),
@@ -3165,7 +3166,9 @@ impl OutboundFactory {
                 .cached_shadowsocks_outbound(node)
                 .map(UdpOutbound::Shadowsocks2022),
             OutboundSettings::Dns(_) => Err(CachedOutboundError::NoSupportedOutbound),
-            OutboundSettings::Socks(_) => Err(CachedOutboundError::UnsupportedOutboundNetwork),
+            OutboundSettings::Socks(_) => SocksOutbound::new(outbound)
+                .map(UdpOutbound::Socks)
+                .map_err(CachedOutboundError::from_core_error),
             OutboundSettings::Blackhole(_) => Err(CachedOutboundError::BlackholeOutbound),
             OutboundSettings::Freedom => {
                 if !stream_transport_is_dialable(&outbound.stream) {
@@ -3297,7 +3300,7 @@ fn build_udp_outbound(outbound: &OutboundConfig) -> Result<UdpOutbound, CoreErro
             Shadowsocks2022Outbound::new(outbound).map(UdpOutbound::Shadowsocks2022)
         }
         OutboundSettings::Dns(_) => Err(CoreError::NoSupportedOutbound),
-        OutboundSettings::Socks(_) => Err(CoreError::UnsupportedOutboundNetwork),
+        OutboundSettings::Socks(_) => SocksOutbound::new(outbound).map(UdpOutbound::Socks),
         OutboundSettings::Blackhole(_) => Err(CoreError::BlackholeOutbound),
         OutboundSettings::Freedom => {
             if !stream_transport_is_dialable(&outbound.stream) {

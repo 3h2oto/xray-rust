@@ -38,6 +38,7 @@ pub(crate) fn udp_outbound_label(outbound: &UdpOutbound) -> &'static str {
         UdpOutbound::Freedom => "freedom",
         UdpOutbound::Vless(_) => "vless",
         UdpOutbound::Trojan(_) => "trojan",
+        UdpOutbound::Socks(_) => "socks",
         UdpOutbound::Vmess(_) => "vmess",
         UdpOutbound::Shadowsocks2022(_) => "shadowsocks-2022",
         UdpOutbound::Hysteria(_) => "hysteria",
