@@ -2,9 +2,6 @@ use super::*;
 use crate::SocksOutboundSettings;
 use xray_proxy::inbound::{SocksAccount, MAX_SOCKS_CREDENTIAL_LENGTH};
 
-/// Keys of the flattened form; any of them next to `servers` mixes both forms.
-const FLAT_FIELDS: [&str; 6] = ["address", "port", "user", "pass", "level", "email"];
-
 impl Parser<'_> {
     pub(super) fn parse_socks_outbound_settings(
         &mut self,
@@ -20,7 +17,12 @@ impl Parser<'_> {
         let Some(servers) = settings.get("servers") else {
             return self.parse_socks_outbound_server(settings, settings, &path, &path);
         };
-        if FLAT_FIELDS.iter().any(|key| settings.get(*key).is_some()) {
+        // Every other settings key belongs to the flattened form.
+        if surface::SOCKS_OUTBOUND
+            .fields
+            .iter()
+            .any(|key| *key != "servers" && settings.get(*key).is_some())
+        {
             self.error(
                 path,
                 "SOCKS outbound flattened settings and servers cannot be combined",

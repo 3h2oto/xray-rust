@@ -10,11 +10,11 @@ use zeroize::Zeroizing;
 /// RFC 1929 caps both the username and the password at 255 bytes.
 pub const MAX_SOCKS_CREDENTIAL_LENGTH: usize = u8::MAX as usize;
 
-const METHOD_NO_AUTH: u8 = 0x00;
-const METHOD_PASSWORD: u8 = 0x02;
-const METHOD_NONE_ACCEPTABLE: u8 = 0xff;
-const PASSWORD_AUTH_VERSION: u8 = 0x01;
-const PASSWORD_AUTH_SUCCESS: u8 = 0x00;
+pub(crate) const METHOD_NO_AUTH: u8 = 0x00;
+pub(crate) const METHOD_PASSWORD: u8 = 0x02;
+pub(crate) const METHOD_NONE_ACCEPTABLE: u8 = 0xff;
+pub(crate) const PASSWORD_AUTH_VERSION: u8 = 0x01;
+pub(crate) const PASSWORD_AUTH_SUCCESS: u8 = 0x00;
 const PASSWORD_AUTH_FAILURE: u8 = 0x01;
 
 #[derive(Debug, Error, PartialEq, Eq)]

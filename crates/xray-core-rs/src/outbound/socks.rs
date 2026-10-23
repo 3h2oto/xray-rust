@@ -29,7 +29,14 @@ impl SocksOutbound {
         if settings.level > 255 {
             return Err(CoreError::NoSupportedOutbound);
         }
-        if matches!(&config.stream.security, StreamSecurity::Tls(tls) if tls.allow_insecure) {
+        // The parser enforces raw/tcp with none or TLS; keep that invariant for
+        // programmatically built configs instead of dialing another carrier.
+        if config.stream.transport != StreamTransport::Raw {
+            return Err(CoreError::UnsupportedOutboundNetwork);
+        }
+        if matches!(&config.stream.security, StreamSecurity::Reality(_))
+            || matches!(&config.stream.security, StreamSecurity::Tls(tls) if tls.allow_insecure)
+        {
             return Err(CoreError::UnsupportedOutboundSecurity);
         }
         Ok(Self(Arc::new(Payload {

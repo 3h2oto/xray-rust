@@ -14,14 +14,13 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use xray_routing::{Target, TargetAddr};
 use zeroize::Zeroizing;
 
-use crate::inbound::{encode_target_addr, read_socks5_address, AddressReadError, SocksAccount};
+use crate::inbound::{
+    encode_target_addr, read_socks5_address, AddressReadError, SocksAccount,
+    METHOD_NONE_ACCEPTABLE, METHOD_NO_AUTH, METHOD_PASSWORD, PASSWORD_AUTH_SUCCESS,
+    PASSWORD_AUTH_VERSION,
+};
 
 const VERSION: u8 = 5;
-const METHOD_NO_AUTH: u8 = 0x00;
-const METHOD_PASSWORD: u8 = 0x02;
-const METHOD_NONE_ACCEPTABLE: u8 = 0xff;
-const PASSWORD_AUTH_VERSION: u8 = 0x01;
-const PASSWORD_AUTH_SUCCESS: u8 = 0x00;
 const COMMAND_CONNECT: u8 = 0x01;
 const REPLY_SUCCEEDED: u8 = 0x00;
 const MAX_DOMAIN_LENGTH: usize = u8::MAX as usize;
