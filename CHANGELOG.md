@@ -10,6 +10,10 @@ long-term supported release series.
 
 ## Unreleased
 
+- Android: the reference `XrayVpnService` marks its VPN as not metered on
+  Android 10+, `XrayCore.ffiInfo()` reads the native version and capabilities
+  once per process, and `XrayCore.stats()` checks the native value count.
+
 ## 0.8.1 - 2026-10-18
 
 Release candidate preparation; publication and exact-candidate release
