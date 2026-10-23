@@ -109,8 +109,16 @@ pub enum SocksInboundAuth {
 }
 
 impl SocksInboundAuth {
-    pub fn requires_password(&self) -> bool {
+    pub const fn requires_password(&self) -> bool {
         matches!(self, Self::Password(_))
+    }
+
+    /// The RFC 1928 method code this inbound selects.
+    const fn method(&self) -> u8 {
+        match self {
+            Self::NoAuth => METHOD_NO_AUTH,
+            Self::Password(_) => METHOD_PASSWORD,
+        }
     }
 }
 
@@ -149,10 +157,7 @@ where
         .await
         .map_err(|_| SocksParseError::Io)?;
 
-    let wanted = match auth {
-        SocksInboundAuth::NoAuth => METHOD_NO_AUTH,
-        SocksInboundAuth::Password(_) => METHOD_PASSWORD,
-    };
+    let wanted = auth.method();
     if !methods.contains(&wanted) {
         stream
             .write_all(&[5, METHOD_NONE_ACCEPTABLE])
@@ -179,19 +184,17 @@ async fn verify_password<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let mut version = [0; 1];
-    stream
-        .read_exact(&mut version)
-        .await
-        .map_err(|_| SocksParseError::Io)?;
-    if version[0] != PASSWORD_AUTH_VERSION {
+    let version = stream.read_u8().await.map_err(|_| SocksParseError::Io)?;
+    if version != PASSWORD_AUTH_VERSION {
         let _ = stream
             .write_all(&[PASSWORD_AUTH_VERSION, PASSWORD_AUTH_FAILURE])
             .await;
-        return Err(SocksParseError::UnsupportedAuthVersion(version[0]));
+        return Err(SocksParseError::UnsupportedAuthVersion(version));
     }
     let user = read_credential(stream).await?;
     let pass = read_credential(stream).await?;
+    // `fold` with a non-short-circuit `|` checks every account, so the timing
+    // does not reveal which one matched; `any` would stop at the first.
     let accepted = accounts.iter().fold(false, |accepted, account| {
         accepted | account.matches(&user, &pass)
     });
@@ -214,12 +217,8 @@ where
 async fn read_credential<R: AsyncRead + Unpin>(
     reader: &mut R,
 ) -> Result<Zeroizing<Vec<u8>>, SocksParseError> {
-    let mut length = [0; 1];
-    reader
-        .read_exact(&mut length)
-        .await
-        .map_err(|_| SocksParseError::Io)?;
-    let mut value = Zeroizing::new(vec![0; usize::from(length[0])]);
+    let length = reader.read_u8().await.map_err(|_| SocksParseError::Io)?;
+    let mut value = Zeroizing::new(vec![0; usize::from(length)]);
     reader
         .read_exact(&mut value)
         .await

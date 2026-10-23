@@ -2,7 +2,7 @@ use super::*;
 use xray_proxy::inbound::{SocksAccount, SocksInboundAuth};
 
 /// Bounds the per-handshake account scan; RFC 1929 has no limit of its own.
-pub(crate) const MAX_SOCKS_ACCOUNTS: usize = 64;
+const MAX_SOCKS_ACCOUNTS: usize = 64;
 
 impl Parser<'_> {
     pub(super) fn parse_socks_inbound_auth(
