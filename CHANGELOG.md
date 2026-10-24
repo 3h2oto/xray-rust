@@ -22,6 +22,17 @@ long-term supported release series.
   closed. Without TLS the credentials travel in cleartext. The outbound carries
   TCP `CONNECT` only; UDP routed to it is refused.
 
+- Fix false checksum failures in Gradle provenance verification after a partial
+  download is retried. Verify completed temporary files against both canonical
+  sidecars and the existing SHA-256 locks.
+
+- Update Tokio to 1.53.3, ctutils to 0.4.4, rustls-webpki to 0.103.16 and
+  webpki-roots to 1.0.10 to resolve the RustSec advisories tracked in #83;
+  replace the yanked der 0.8.0 with 0.8.1.
+- Register TUN and benchmark descriptors with Tokio's new API using private
+  close-on-exec duplicates. Async readiness owns its descriptor for its entire
+  lifetime, while the caller's original BORROWED/OWNED close policy is preserved.
+
 ## 0.8.1 - 2026-10-18
 
 Release candidate preparation; publication and exact-candidate release
