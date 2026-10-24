@@ -10,6 +10,12 @@ long-term supported release series.
 
 ## Unreleased
 
+- Add RFC 1929 username/password authentication to the SOCKS inbound
+  (`"auth": "password"` with `accounts`). Password-protected UDP associations
+  accept datagrams only from the declared client endpoint and refuse requests
+  that leave the port unset, such as `0.0.0.0:0`, and
+  `accounts` under `noauth` are now rejected instead of ignored (#78).
+
 - Fix false checksum failures in Gradle provenance verification after a partial
   download is retried. Verify completed temporary files against both canonical
   sidecars and the existing SHA-256 locks.
