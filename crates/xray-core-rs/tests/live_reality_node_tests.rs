@@ -128,7 +128,10 @@ fn live_core_config() -> CoreConfig {
     let config = parsed.config;
     assert_eq!(config.inbounds.len(), 1, "live test uses one SOCKS inbound");
     assert_eq!(config.inbounds[0].tag.as_deref(), Some(LIVE_SOCKS_TAG));
-    assert_eq!(config.inbounds[0].protocol, InboundProtocol::Socks);
+    assert_eq!(
+        config.inbounds[0].protocol,
+        InboundProtocol::Socks(Default::default())
+    );
     assert!(
         config.outbounds.iter().any(|outbound| {
             matches!(outbound.settings, OutboundSettings::Vless(_))

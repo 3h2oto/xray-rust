@@ -1026,6 +1026,15 @@
       "notes": "Value types, bounds and activation rules are enforced by the executable parser."
     },
     {
+      "context": "$.inbounds[].settings.accounts[] (socks)",
+      "fields": [
+        "user",
+        "pass"
+      ],
+      "id": "SOCKS_ACCOUNT",
+      "notes": "RFC 1929 credentials; user and pass are required strings of 1..255 UTF-8 bytes. Credentials are redacted."
+    },
+    {
       "context": "$.inbounds[].settings (socks)",
       "fields": [
         "auth",
@@ -1036,7 +1045,7 @@
         "allowUnauthenticatedLan"
       ],
       "id": "SOCKS_SETTINGS",
-      "notes": "auth must be noauth. accounts must be an empty array when present. ip is ignored; udp and userLevel are parsed."
+      "notes": "auth is noauth (default) or password. password requires 1..64 accounts and makes the inbound offer only RFC 1929 username/password; accounts must be empty or absent with noauth. ip is ignored; udp and userLevel are parsed."
     },
     {
       "context": "$.outbounds[].streamSettings; XHTTP downloadSettings after removing address/port",

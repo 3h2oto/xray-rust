@@ -287,9 +287,24 @@ Other top-level keys are rejected.
 
 | Protocol | Supported behavior | Unsupported or constrained behavior |
 | --- | --- | --- |
-| `socks` | SOCKS5 no-auth `CONNECT`, `UDP ASSOCIATE`, `userLevel`, sniffing | Authentication/accounts |
+| `socks` | SOCKS5 `CONNECT`, `UDP ASSOCIATE`, `userLevel`, sniffing; `auth` `noauth` or `password` with RFC 1929 `accounts` | GSSAPI; `accounts` with `noauth` |
 | `http` | HTTP `CONNECT`, timeout-shaped policy, `userLevel`, sniffing | Accounts and transparent proxy mode |
 | `tun` | Platform packet boundary or registered fd; port may be omitted | Platform interface creation and routes are host responsibilities |
+
+`"auth": "password"` requires 1–64 `accounts` entries of `{"user", "pass"}`,
+each value 1–255 UTF-8 bytes, and makes the inbound offer only RFC 1929
+username/password; a client offering only no-auth receives `0xFF`. Credentials
+are compared in constant time and redacted from `Debug` output and diagnostics.
+RFC 1929 authenticates only the TCP control connection, so a password-protected
+`UDP ASSOCIATE` accepts datagrams only from the client endpoint declared in the
+request. A request that leaves the port unset, such as `0.0.0.0:0`, is refused
+with a general failure reply and no relay socket: every local process shares the
+loopback IP, so nothing would tie the first sender to the login. This differs
+from Xray-core, which pins such an association to the first sender from the
+control connection's IP. Xray-core
+only consults `accounts` under `password`, so `accounts` with `noauth` is
+rejected rather than leaving an inbound unauthenticated by accident. The loopback-only listener
+rule and `allowUnauthenticatedLan` are unchanged.
 
 Common fields are `tag`, `protocol`, `listen`, `port`, `settings`, and
 `sniffing`. Sniffing supports `enabled`, `destOverride` values `http`, `tls`,

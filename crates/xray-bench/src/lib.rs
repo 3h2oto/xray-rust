@@ -6,7 +6,7 @@ use std::hint::black_box;
 use std::io::{self, Read as IoRead, Write as IoWrite};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener as StdTcpListener};
 #[cfg(unix)]
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{
@@ -2961,14 +2961,17 @@ pub async fn run_tun_udp_freedom_workload(
 }
 
 #[cfg(unix)]
-#[derive(Debug, Clone, Copy)]
-struct TunFdRef(RawFd);
-
-#[cfg(unix)]
-impl AsRawFd for TunFdRef {
-    fn as_raw_fd(&self) -> RawFd {
-        self.0
+fn register_tun_fd(fd: RawFd) -> io::Result<AsyncFd<OwnedFd>> {
+    // Give the registration its own lifetime without taking the caller's fd.
+    let duplicate = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0) };
+    if duplicate < 0 {
+        return Err(io::Error::last_os_error());
     }
+    // SAFETY: fcntl returned a new open descriptor that we alone own.
+    let duplicate = unsafe { OwnedFd::from_raw_fd(duplicate) };
+    // SAFETY: AsyncFd owns the duplicate, whose descriptor stays open and
+    // unchanged until the registration is dropped, including task cancellation.
+    unsafe { AsyncFd::register(duplicate) }.map_err(io::Error::from)
 }
 
 #[cfg(unix)]
@@ -3081,9 +3084,8 @@ async fn run_tun_dns_udp_workload(
         .connections
         .saturating_mul(2)
         .clamp(1, TUN_FAKE_DNS_MAX_IN_FLIGHT);
-    // `RunningEngine` owns and closes the descriptor after the workload. This wrapper only
-    // registers that live descriptor with Tokio; dropping it must not close the underlying fd.
-    let tun = AsyncFd::new(TunFdRef(tun_fd)).map_err(|source| BenchError::Io {
+    // Keep RunningEngine ownership intact while registering a private duplicate.
+    let tun = register_tun_fd(tun_fd).map_err(|source| BenchError::Io {
         action: "registering benchmark TUN fd for async readiness".to_owned(),
         source,
     })?;
@@ -3274,7 +3276,7 @@ async fn run_tun_dns_tcp_workload(
         ));
     }
 
-    let tun = AsyncFd::new(TunFdRef(tun_fd)).map_err(|source| BenchError::Io {
+    let tun = register_tun_fd(tun_fd).map_err(|source| BenchError::Io {
         action: "registering benchmark TUN fd for DNS-over-TCP readiness".to_owned(),
         source,
     })?;
@@ -3570,7 +3572,7 @@ fn tun_dns_tcp_poll_delay(active: &mut [TunDnsTcpConnection]) -> Duration {
 
 #[cfg(unix)]
 async fn wait_tun_dns_tcp_io(
-    tun: &AsyncFd<TunFdRef>,
+    tun: &AsyncFd<OwnedFd>,
     send_frame: Option<&[u8]>,
     can_receive: bool,
     read_buffer: &mut [u8],
@@ -4725,7 +4727,7 @@ fn tun_fake_dns_timeout_error(
 
 #[cfg(unix)]
 async fn wait_tun_fake_dns_io(
-    tun: &AsyncFd<TunFdRef>,
+    tun: &AsyncFd<OwnedFd>,
     send_frame: Option<&[u8]>,
     can_receive: bool,
     buffer: &mut [u8],
@@ -4759,7 +4761,7 @@ async fn wait_tun_fake_dns_io(
 
 #[cfg(unix)]
 async fn write_tun_frame_ready(
-    tun: &AsyncFd<TunFdRef>,
+    tun: &AsyncFd<OwnedFd>,
     frame: &[u8],
 ) -> Result<Instant, BenchError> {
     loop {
@@ -4782,7 +4784,7 @@ async fn write_tun_frame_ready(
 
 #[cfg(unix)]
 async fn read_tun_frame_ready(
-    tun: &AsyncFd<TunFdRef>,
+    tun: &AsyncFd<OwnedFd>,
     buffer: &mut [u8],
 ) -> Result<usize, BenchError> {
     loop {
@@ -9335,7 +9337,7 @@ async fn measure_phase2_connection_registry(
     let mut core = Core::new(CoreConfig {
         inbounds: vec![InboundConfig {
             tag: Some("bench-in".to_owned()),
-            protocol: InboundProtocol::Socks,
+            protocol: InboundProtocol::Socks(Default::default()),
             listen: Ipv4Addr::LOCALHOST.to_string(),
             port: 0,
             allow_unauthenticated_lan: false,
@@ -10661,7 +10663,7 @@ fn route_probe_config(
     Ok(CoreConfig {
         inbounds: vec![InboundConfig {
             tag: Some("bench-in".to_owned()),
-            protocol: InboundProtocol::Socks,
+            protocol: InboundProtocol::Socks(Default::default()),
             listen: "127.0.0.1".to_owned(),
             port: 0,
             allow_unauthenticated_lan: false,
@@ -11668,6 +11670,30 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use std::time::Duration;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn registered_tun_remains_usable_after_the_original_owner_is_dropped() {
+        let (host, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+        host.set_nonblocking(true).unwrap();
+        peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let registered = register_tun_fd(host.as_raw_fd()).unwrap();
+        drop(host);
+
+        timeout(
+            Duration::from_secs(1),
+            write_tun_frame_ready(&registered, b"packet"),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let mut received = [0; 6];
+        peer.read_exact(&mut received).unwrap();
+        assert_eq!(&received, b"packet");
+
+        drop(registered);
+        assert_eq!(peer.read(&mut received).unwrap(), 0);
+    }
 
     #[test]
     fn xray_core_output_path_is_scoped_to_the_pinned_oracle() {
@@ -13110,13 +13136,12 @@ mod tests {
             action: "setting test Core TUN fd nonblocking".to_owned(),
             source,
         })?;
-        let fd =
-            Arc::new(
-                AsyncFd::new(TunFdRef(engine_fd.raw())).map_err(|source| BenchError::Io {
-                    action: "registering test Core TUN fd".to_owned(),
-                    source,
-                })?,
-            );
+        let fd = Arc::new(
+            register_tun_fd(engine_fd.raw()).map_err(|source| BenchError::Io {
+                action: "registering test Core TUN fd".to_owned(),
+                source,
+            })?,
+        );
         let inbound = core.tun_handle();
         let outbound = core.tun_handle();
 
@@ -13395,7 +13420,7 @@ mod tests {
             engine_fd,
             workload_fd,
         } = create_tun_socket_pair().unwrap();
-        let tun = AsyncFd::new(TunFdRef(workload_fd.raw())).unwrap();
+        let tun = register_tun_fd(workload_fd.raw()).unwrap();
         let immediate_response = [0_u8; DARWIN_UTUN_HEADER_LEN];
         write_tun_frame(engine_fd.raw(), &immediate_response).unwrap();
         let readable = timeout(Duration::from_secs(1), tun.readable())

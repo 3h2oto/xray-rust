@@ -14,6 +14,23 @@ long-term supported release series.
   Android 10+, `XrayCore.ffiInfo()` reads the native version and capabilities
   once per process, and `XrayCore.stats()` checks the native value count.
 
+- Add RFC 1929 username/password authentication to the SOCKS inbound
+  (`"auth": "password"` with `accounts`). Password-protected UDP associations
+  accept datagrams only from the declared client endpoint and refuse requests
+  that leave the port unset, such as `0.0.0.0:0`, and
+  `accounts` under `noauth` are now rejected instead of ignored (#78).
+
+- Fix false checksum failures in Gradle provenance verification after a partial
+  download is retried. Verify completed temporary files against both canonical
+  sidecars and the existing SHA-256 locks.
+
+- Update Tokio to 1.53.3, ctutils to 0.4.4, rustls-webpki to 0.103.16 and
+  webpki-roots to 1.0.10 to resolve the RustSec advisories tracked in #83;
+  replace the yanked der 0.8.0 with 0.8.1.
+- Register TUN and benchmark descriptors with Tokio's new API using private
+  close-on-exec duplicates. Async readiness owns its descriptor for its entire
+  lifetime, while the caller's original BORROWED/OWNED close policy is preserved.
+
 ## 0.8.1 - 2026-10-18
 
 Release candidate preparation; publication and exact-candidate release
