@@ -10,6 +10,10 @@ long-term supported release series.
 
 ## Unreleased
 
+- Fix false checksum failures in Gradle provenance verification after a partial
+  download is retried. Verify completed temporary files against both canonical
+  sidecars and the existing SHA-256 locks.
+
 - Update Tokio to 1.53.3, ctutils to 0.4.4, rustls-webpki to 0.103.16 and
   webpki-roots to 1.0.10 to resolve the RustSec advisories tracked in #83;
   replace the yanked der 0.8.0 with 0.8.1.
