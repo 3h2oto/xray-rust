@@ -198,6 +198,7 @@ for setup details.
 - [Status and supported features](docs/status.md)
 - [Architecture](docs/architecture.md)
 - [Configuration compatibility](docs/config-compatibility.md)
+- [Xray-core differences and verification gaps](docs/xray-core-differences.md)
 - [Configuration contract and CLI tooling](docs/config-tooling.md)
 - [C ABI lifecycle and ownership](docs/ffi.md)
 - [Verification](docs/verification.md)

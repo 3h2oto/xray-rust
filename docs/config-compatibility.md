@@ -10,6 +10,10 @@ documents the generated [machine-readable contract](config-contract.json),
 canonical examples, geodata lookup and the boundary between parser acceptance
 and later runtime validation.
 
+See [Xray-core differences and verification gaps](xray-core-differences.md)
+for the reference revision, deliberate SOCKS restrictions, mobile integration
+gaps, and pending HTTP decisions from issues #79 and #81.
+
 ## v0.8 Hysteria carrier additions
 
 Hysteria accepts one Salamander mask and the `udpHop` QUIC override in the
@@ -305,6 +309,10 @@ control connection's IP. Xray-core
 only consults `accounts` under `password`, so `accounts` with `noauth` is
 rejected rather than leaving an inbound unauthenticated by accident. The loopback-only listener
 rule and `allowUnauthenticatedLan` are unchanged.
+
+The pinned Xray-core v26.7.28 SOCKS client itself sends `0.0.0.0:0` for UDP
+association, so it cannot use this password-protected UDP path. See the
+[compatibility consequence and evidence](xray-core-differences.md#password-protected-socks-udp-deliberate-restriction).
 
 Common fields are `tag`, `protocol`, `listen`, `port`, `settings`, and
 `sniffing`. Sniffing supports `enabled`, `destOverride` values `http`, `tls`,
