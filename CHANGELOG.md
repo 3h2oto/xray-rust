@@ -10,6 +10,13 @@ long-term supported release series.
 
 ## Unreleased
 
+- Mobile: prepare SOCKS outbound server addresses before installing Android VPN
+  or Apple Network Extension settings, in both flat and legacy `servers` forms.
+  Pin all resolved A/AAAA candidates in `dns.hosts`, preserve credentials and TLS
+  metadata, and reject tunnel-owned carrier addresses. Apple also excludes every
+  SOCKS carrier candidate from tunnel routes; destination domains still resolve
+  at the SOCKS proxy.
+
 - Android: the reference `XrayVpnService` marks its VPN as not metered on
   Android 10+, `XrayCore.ffiInfo()` reads the native version and capabilities
   once per process, and `XrayCore.stats()` checks the native value count.
