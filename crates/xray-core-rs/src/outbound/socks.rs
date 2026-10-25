@@ -117,10 +117,21 @@ impl SocksOutbound {
         }
         // Validate before DNS or dialing, including programmatically built targets.
         encode_socks5_udp_request(target, &[])?;
-        let candidates = resolve_server_candidates(self.server(), resolver).await?;
-        let download = self.0.carrier.resolve_download(resolver).await?;
+        // DNS lookups already canonicalize mapped IPv6, but literal endpoints
+        // bypass DNS. Use the same normalization before selecting a UDP family.
+        let candidates = xray_transport::DnsLookup::new(
+            resolve_server_candidates(self.server(), resolver).await?,
+            None,
+        );
+        let fragmented_dialer = self
+            .0
+            .carrier
+            .fragment
+            .as_ref()
+            .map(|fragment| dialer.clone().with_tcp_fragment(fragment.clone()));
+        let dialer = fragmented_dialer.as_ref().unwrap_or(dialer);
         let mut families = Vec::with_capacity(2);
-        for candidate in &candidates {
+        for candidate in candidates.socket_addrs() {
             if !families.contains(&candidate.is_ipv4()) {
                 families.push(candidate.is_ipv4());
             }
@@ -129,6 +140,7 @@ impl SocksOutbound {
         let mut last_error = None;
         for ipv4 in families {
             let family: Vec<SocketAddr> = candidates
+                .socket_addrs()
                 .iter()
                 .copied()
                 .filter(|candidate| candidate.is_ipv4() == ipv4)
@@ -141,10 +153,18 @@ impl SocksOutbound {
                     continue;
                 }
             };
-            let mut control = match self.0.carrier.open(&family, &download, dialer).await {
-                Ok(control) => control,
+            let (mut control, peer) = match dialer
+                .connect_raw_stream_with_peer(
+                    &self.0.carrier.transport,
+                    self.server(),
+                    &family,
+                    self.0.carrier.happy_eyeballs.as_ref(),
+                )
+                .await
+            {
+                Ok(connected) => connected,
                 Err(error) => {
-                    last_error = Some(error);
+                    last_error = Some(error.into());
                     continue;
                 }
             };
@@ -153,7 +173,7 @@ impl SocksOutbound {
                 &mut control,
                 self.0.account.as_ref(),
                 socket.local_addr()?,
-                family[0].ip(),
+                peer.ip(),
             )
             .await?;
             if relay.is_ipv4() != ipv4 {

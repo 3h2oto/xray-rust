@@ -32,6 +32,10 @@ long-term supported release series.
   relay datagrams are dropped instead of ending it, and an oversized datagram
   is an error rather than an empty datagram. The datagrams use a protected
   plain UDP socket; TLS covers only the control connection.
+  Unspecified relay addresses use the actual TCP peer after Happy Eyeballs,
+  and IPv4-mapped proxy literals select IPv4 for both sockets. Pinned Xray-core
+  interop covers UDP, TLS control, IPv4/IPv6/domain targets, and TUN UDP/DNS;
+  the password-inbound restriction on undeclared UDP ports remains in force.
 
 - Fix false checksum failures in Gradle provenance verification after a partial
   download is retried. Verify completed temporary files against both canonical

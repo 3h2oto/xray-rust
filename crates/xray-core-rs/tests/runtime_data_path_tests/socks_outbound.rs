@@ -8,6 +8,9 @@
 use super::*;
 use xray_proxy::inbound::SocksUdpDatagram;
 
+#[path = "../socks_runtime/support.rs"]
+mod reference;
+
 const UPSTREAM_INBOUND: &str = r#",
     {"tag": "upstream-in", "protocol": "socks", "listen": "127.0.0.1", "port": UPSTREAM_PORT,
      "settings": {"auth": "password", "udp": true,
@@ -345,6 +348,162 @@ async fn socks_outbound_ends_the_udp_session_when_the_upstream_closes_control() 
             .expect("the next datagram opens a new association");
 
         drop((client, relay));
+        core.stop().await.unwrap();
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn socks_outbound_udp_unspecified_relay_uses_the_connected_server_candidate() {
+    timeout(Duration::from_secs(10), async {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        // The first same-family candidate refuses TCP. The second accepts and
+        // returns 0.0.0.0, which must refer to that connected server, not the
+        // first DNS result. This also covers mobile bootstrap IP arrays.
+        let profile = serde_json::json!({
+            "dns": {"hosts": {"fallback.socks.test": ["127.0.0.2", "127.0.0.1"]}},
+            "inbounds": [{"tag": "client-in", "protocol": "socks", "listen": "127.0.0.1", "port": 0,
+                "settings": {"auth": "noauth", "udp": true}}],
+            "outbounds": [{"protocol": "socks", "settings": {
+                "address": "fallback.socks.test", "port": port,
+                "user": "synthetic-user", "pass": "synthetic-pass"
+            }, "streamSettings": {"sockopt": {"happyEyeballs": {"tryDelayMs": 10}}}}]
+        });
+        let mut core = Core::new(parse_xray_json(&profile.to_string()).unwrap().config).unwrap();
+        core.start().await.unwrap();
+        let client = UdpClient::associate(core.inbound_addr(Some("client-in")).unwrap()).await;
+        client.send(SYNTHETIC_UDP_TARGET, b"fallback").await;
+        let upstream = scripted_upstream_association(&listener).await;
+        let (source, request) = upstream.recv().await;
+        assert_eq!(request.payload.as_ref(), b"fallback");
+        let reply = encode_socks5_udp_datagram(&request.target, b"connected candidate").unwrap();
+        upstream.relay.send_to(&reply, source).await.unwrap();
+        assert_eq!(client.recv().await.as_ref(), b"connected candidate");
+        drop(client);
+        core.stop().await.unwrap();
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires pinned Xray; run scripts/check-socks-interop.sh"]
+async fn socks_runtime_tun_udp_and_dns_against_pinned_xray() {
+    timeout(reference::DEADLINE * 2, async {
+        let server = reference::XrayServer::start().await;
+        let upstream = spawn_observed_udp_dns_a_server(Ipv4Addr::LOCALHOST).await;
+        let probe = upstream.probe();
+        let (echo, _echo) = crate::hysteria_support::udp_echo().await;
+        let settings = reference::outbound_settings(
+            reference::Form::Flat,
+            server.password,
+            Some((reference::USER, reference::PASS)),
+        );
+        let mut profile = reference::profile(settings, false);
+        profile["dns"] = serde_json::json!({
+            "queryStrategy":"UseIPv4", "hosts":{"bootstrap.example":"127.0.0.1"},
+            "servers":[{"address":"127.0.0.1", "port":upstream.addr().port()}]
+        });
+        let protector = Arc::new(crate::hysteria_support::Protector::default());
+        let dialer = Arc::new(
+            TransportDialer::system()
+                .unwrap()
+                .with_socket_protector(protector.clone()),
+        );
+        let mut core = Core::with_transport_dialer_and_tun_options(
+            parse_xray_json(&profile.to_string()).unwrap().config,
+            dialer,
+            TunRuntimeOptions {
+                dns_bootstrap: DnsBootstrapMode::StaticOnly,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        core.start().await.unwrap();
+        let client = Ipv4Addr::new(10, 10, 0, 2);
+        let payload = b"tun UDP via pinned SOCKS";
+        core.tun()
+            .push_inbound(Bytes::from(ipv4_udp_packet(
+                client,
+                49154,
+                Ipv4Addr::LOCALHOST,
+                echo.port(),
+                payload,
+            )))
+            .await
+            .unwrap();
+        let reply =
+            poll_tun_outbound_until_with_timeout(core.tun(), reference::DEADLINE, |packet| {
+                ipv4_udp_payload(packet).is_some_and(|p| p == payload)
+            })
+            .await;
+        assert_ipv4_udp_packet(
+            &reply,
+            Ipv4Addr::LOCALHOST,
+            echo.port(),
+            client,
+            49154,
+            payload,
+        );
+
+        let query = build_dns_a_query(0x7287, "wire-socks.example");
+        let anchor = Ipv4Addr::new(198, 18, 0, 1);
+        core.tun()
+            .push_inbound(Bytes::from(ipv4_udp_packet(
+                client, 53044, anchor, 53, &query,
+            )))
+            .await
+            .unwrap();
+        let reply =
+            poll_tun_outbound_until_with_timeout(core.tun(), reference::DEADLINE, |packet| {
+                ipv4_udp_payload(packet)
+                    .is_some_and(|p| p.get(..2) == Some(&0x7287_u16.to_be_bytes()))
+            })
+            .await;
+        let response = ipv4_udp_payload(&reply).unwrap();
+        assert_eq!(
+            dns_response_answer_ipv4(response),
+            Some(Ipv4Addr::LOCALHOST)
+        );
+        assert_ipv4_udp_packet(&reply, anchor, 53, client, 53044, response);
+        assert_eq!(probe.snapshot().len(), 1);
+        assert_eq!(
+            protector.0.load(Ordering::SeqCst),
+            4,
+            "each flow protects its TCP control and UDP socket"
+        );
+        core.stop().await.unwrap();
+        upstream.stop().await;
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn socks_outbound_udp_uses_ipv4_socket_for_mapped_proxy_address() {
+    timeout(Duration::from_secs(10), async {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let mut config = chain_config(
+            listener.local_addr().unwrap().port(),
+            "synthetic-pass",
+            false,
+        );
+        let OutboundSettings::Socks(settings) = &mut config.outbounds[1].settings else {
+            unreachable!()
+        };
+        settings.server = TargetAddr::Ip(IpAddr::V6(Ipv4Addr::LOCALHOST.to_ipv6_mapped()));
+        let mut core = Core::new(config).unwrap();
+        core.start().await.unwrap();
+        let client = UdpClient::associate(core.inbound_addr(Some("client-in")).unwrap()).await;
+        client.send(SYNTHETIC_UDP_TARGET, b"mapped").await;
+        let upstream = scripted_upstream_association(&listener).await;
+        let (source, request) = upstream.recv().await;
+        let reply = encode_socks5_udp_datagram(&request.target, &request.payload).unwrap();
+        upstream.relay.send_to(&reply, source).await.unwrap();
+        assert_eq!(client.recv().await.as_ref(), b"mapped");
+        drop(client);
         core.stop().await.unwrap();
     })
     .await

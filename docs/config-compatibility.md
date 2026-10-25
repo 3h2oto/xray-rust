@@ -537,8 +537,10 @@ model's debug output and are never echoed in diagnostics.
   that port with the control connection's source IP; the control connection
   and the socket therefore use the same address family, trying the server's
   resolved families in order. A relay address of `0.0.0.0` or `::` means the
-  server's address, as in Xray. A bound domain is accepted only as an IP
-  literal, and a relay of the other address family, a zero relay port or a
+  connected TCP peer's address, as in Xray; with Happy Eyeballs this may be a
+  later DNS candidate. IPv4-mapped IPv6 proxy literals use an IPv4 UDP socket,
+  matching TCP dialing and mobile carrier exclusions. A bound domain is accepted
+  only as an IP literal, and a relay of the other address family, a zero relay port or a
   rejected request fails the flow.
 - The flow ends when the server closes the control connection; Xray does not
   notice that and waits for its idle timer. Received datagrams that are
@@ -561,6 +563,24 @@ model's debug output and are never echoed in diagnostics.
   including UDP through a chained SOCKS outbound, and REALITY inside a chain
   stay rejected. `streamSettings.sockopt.dialerProxy`
   keeps its fragment-only form and cannot route through another proxy.
+
+`scripts/check-socks-interop.sh` verifies this subset against pinned Xray-core
+v26.7.28: both settings forms, TCP authentication over plain TCP and UDP
+authentication over plain or TLS control connections, wrong/missing credentials,
+UDP IPv4/IPv6/domain destinations and the 8 KiB framing boundary,
+socket protection, connection close, and
+TUN UDP/DNS with `StaticOnly` bootstrap. Destination names are resolved by the
+proxy, not the local bootstrap resolver. The reverse-direction test verifies
+that the Go client authenticates for TCP but its undeclared UDP port remains
+refused by our password-protected inbound. Tests use loopback; they do not
+establish physical-device VPN routing, NAT behavior, an IPv6 proxy carrier,
+TCP chaining, or `probeOutboundUrl` interoperability.
+
+Mobile carrier preparation is tracked separately in
+[PR #86](https://github.com/aimalygin/xray-rust/pull/86). UDP support does not
+remove the requirement to pin proxy hostnames before entering `StaticOnly`
+mode or to install Apple carrier exclusions. HTTP outbound in #79 remains
+unimplemented.
 
 ### WebSocket and HTTPUpgrade
 
