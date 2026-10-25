@@ -47,8 +47,8 @@ recorded with its original RC identity.
 
 | Capability | Status | Verification boundary |
 | --- | --- | --- |
-| SOCKS5 no-auth TCP `CONNECT` | Supported | Local echo and routing integration tests |
-| SOCKS5 `UDP ASSOCIATE` | Supported | Freedom, VLESS datagram, XUDP, and Vision XUDP tests |
+| SOCKS5 no-auth or RFC 1929 password TCP `CONNECT` | Supported | Local echo, authentication failure, and routing integration tests |
+| SOCKS5 `UDP ASSOCIATE` | Supported | Freedom, VLESS datagram, XUDP, and Vision XUDP tests; password mode requires a declared client endpoint and rejects other local senders, including one arriving first |
 | HTTP `CONNECT` | Supported | Local VLESS and routing integration tests |
 | Platform-neutral TUN packet boundary | Supported | TCP, UDP, routing, backpressure, malformed-packet, and ICMP tests |
 | Direct fd-backed TUN | Supported | Raw-IP Android and Darwin-utun framing paths; host integration is platform-owned |
@@ -101,7 +101,7 @@ Notable unsupported areas include:
 - general VLESS Mux, reverse proxy, observatory command/API services, regex `leastLoad`
   costs, and outbound chaining outside the documented transport-layer TCP
   subset;
-- SOCKS/HTTP authentication and HTTP transparent proxy mode;
+- HTTP inbound authentication and HTTP transparent proxy mode;
 - full Xray DNS, policy/statistics, sniffing, and routing semantics.
 
 ## Platform status
