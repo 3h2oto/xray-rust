@@ -115,7 +115,7 @@ objects! {
         "Value types, bounds and activation rules are enforced by the executable parser."),
     OUTBOUND: ("$.outbounds[]",
         ["tag", "protocol", "settings", "streamSettings", "mux", "proxySettings", "sendThrough"],
-        "freedom, blackhole, dns, VLESS, Trojan, Shadowsocks 2022, VMess AEAD, SOCKS5 (TCP CONNECT), Hysteria 2 and a bounded WireGuard client subset. sendThrough is rejected whenever present, including null. First outbound is the default. Tag graph validation is a later core compilation step."),
+        "freedom, blackhole, dns, VLESS, Trojan, Shadowsocks 2022, VMess AEAD, SOCKS5 (CONNECT and UDP ASSOCIATE), Hysteria 2 and a bounded WireGuard client subset. sendThrough is rejected whenever present, including null. First outbound is the default. Tag graph validation is a later core compilation step."),
     POLICY: ("$.policy",
         ["levels", "system"],
         "Value types, bounds and activation rules are enforced by the executable parser."),

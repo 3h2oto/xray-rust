@@ -1165,6 +1165,7 @@ async fn bridge_socks_udp_flow(
 
     match outbound {
         outbound @ (UdpOutbound::Trojan(_)
+        | UdpOutbound::Socks(_)
         | UdpOutbound::Vmess(_)
         | UdpOutbound::Shadowsocks2022(_)
         | UdpOutbound::Hysteria(_)

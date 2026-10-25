@@ -7,156 +7,47 @@
 //! resolver accepts nothing but the SOCKS server name.
 #[path = "hysteria_runtime/support.rs"]
 mod hysteria_support;
-use hysteria_support::{tcp_echo, Bootstrap, Protector};
+use hysteria_support::{tcp_echo, udp_echo, Bootstrap, Protector, Task};
 use serde_json::{json, Value};
 use std::{
-    net::{Ipv4Addr, SocketAddr},
-    path::PathBuf,
-    process::{Child, Command, Stdio},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
+    net::{TcpStream, UdpSocket},
     time::timeout,
 };
 use xray_core_rs::Core;
-use xray_transport::TransportDialer;
+use xray_proxy::inbound::{encode_socks5_udp_datagram, parse_socks5_udp_datagram};
+use xray_proxy::outbound::socks5_udp_associate;
+use xray_routing::{Network, Target, TargetAddr};
+use xray_transport::{TlsConnector, TransportDialer};
 
-const DEADLINE: Duration = Duration::from_secs(20);
-const USER: &str = "synthetic-socks-user";
-const PASS: &str = "synthetic-socks-pass";
-const REMOTE_DOMAIN: &str = "echo.socks-interop.test";
+#[path = "socks_runtime/support.rs"]
+mod support;
+use support::*;
 const PAYLOAD_LEN: usize = 64 * 1024;
 
-/// Pinned Xray with a password inbound and a no-auth inbound on loopback.
-struct XrayServer {
-    child: Child,
-    directory: PathBuf,
-    password: u16,
-    noauth: u16,
-}
-
-impl XrayServer {
-    async fn start() -> Self {
-        let binary = std::env::var_os("XRAY_CLIENT_PROTOCOL_BINARY")
-            .expect("run scripts/check-socks-interop.sh");
-        let directory = std::env::temp_dir().join(format!(
-            "xray-socks-{}-{:016x}",
-            std::process::id(),
-            rand::random::<u64>()
-        ));
-        std::fs::create_dir(&directory).unwrap();
-        // Hold both listeners until the config is written so the ports differ.
-        let listeners = [(); 2].map(|_| std::net::TcpListener::bind("127.0.0.1:0").unwrap());
-        let [password, noauth] = listeners
-            .each_ref()
-            .map(|listener| listener.local_addr().unwrap().port());
-        let config = json!({
-            "log": {"loglevel": "debug"},
-            "dns": {"hosts": {REMOTE_DOMAIN: "127.0.0.1"}},
-            "inbounds": [
-                {"listen": "127.0.0.1", "port": password, "protocol": "socks",
-                 "settings": {"auth": "password", "accounts": [{"user": USER, "pass": PASS}]}},
-                {"listen": "127.0.0.1", "port": noauth, "protocol": "socks",
-                 "settings": {"auth": "noauth"}}
-            ],
-            "outbounds": [{"protocol": "freedom", "settings": {
-                "domainStrategy": "UseIPv4",
-                "finalRules": [{"action": "allow", "ip": ["127.0.0.0/8"]}]
-            }}]
-        });
-        std::fs::write(
-            directory.join("config.json"),
-            serde_json::to_vec(&config).unwrap(),
-        )
-        .unwrap();
-        drop(listeners);
-        let log = std::fs::File::create(directory.join("server.log")).unwrap();
-        let child = Command::new(binary)
-            .args(["run", "-config"])
-            .arg(directory.join("config.json"))
-            .stdin(Stdio::null())
-            .stdout(log.try_clone().unwrap())
-            .stderr(log)
-            .spawn()
-            .unwrap();
-        let mut server = Self {
-            child,
-            directory,
-            password,
-            noauth,
-        };
-        server.wait_ready().await;
-        server
-    }
-
-    async fn wait_ready(&mut self) {
-        let deadline = tokio::time::Instant::now() + DEADLINE;
-        loop {
-            assert!(self.child.try_wait().unwrap().is_none(), "Xray exited");
-            if self.log().contains("core: Xray 26.7.28 started") {
-                return;
-            }
-            assert!(
-                tokio::time::Instant::now() < deadline,
-                "Xray startup timeout"
-            );
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }
-
-    fn log(&self) -> String {
-        std::fs::read_to_string(self.directory.join("server.log")).unwrap_or_default()
-    }
-}
-
-impl Drop for XrayServer {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        if std::thread::panicking() {
-            eprintln!("pinned Xray log:\n{}", self.log());
-        }
-        let _ = std::fs::remove_dir_all(&self.directory);
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum Form {
-    Flat,
-    Servers,
-}
-
-/// Outbound settings in either Xray form; the server name is resolved by
-/// `Bootstrap`, which rejects every other name.
-fn outbound_settings(form: Form, port: u16, account: Option<(&str, &str)>) -> Value {
-    match (form, account) {
-        (Form::Flat, None) => json!({"address": "bootstrap.example", "port": port}),
-        (Form::Flat, Some((user, pass))) => {
-            json!({"address": "bootstrap.example", "port": port, "user": user, "pass": pass})
-        }
-        (Form::Servers, None) => {
-            json!({"servers": [{"address": "bootstrap.example", "port": port}]})
-        }
-        (Form::Servers, Some((user, pass))) => json!({"servers": [{
-            "address": "bootstrap.example", "port": port,
-            "users": [{"user": user, "pass": pass}]
-        }]}),
-    }
-}
-
 fn core(settings: Value) -> (Core, Arc<Protector>, Arc<Bootstrap>) {
+    core_with_tls(settings, None)
+}
+
+fn core_with_tls(
+    settings: Value,
+    tls: Option<TlsConnector>,
+) -> (Core, Arc<Protector>, Arc<Bootstrap>) {
     let protector = Arc::new(Protector::default());
     let bootstrap = Arc::new(Bootstrap::default());
-    let dialer =
-        Arc::new(TransportDialer::system_with_socket_protector(Some(protector.clone())).unwrap());
-    let profile = json!({
-        "inbounds": [{"tag": "socks-in", "protocol": "socks", "listen": "127.0.0.1", "port": 0,
-                      "settings": {"auth": "noauth"}}],
-        "outbounds": [{"tag": "proxy", "protocol": "socks", "settings": settings}]
-    });
+    let profile = profile(settings, tls.is_some());
+    let dialer = Arc::new(
+        tls.map_or_else(
+            || TransportDialer::system().unwrap(),
+            TransportDialer::with_tls_connector,
+        )
+        .with_socket_protector(protector.clone()),
+    );
     let config = xray_config::parse_xray_json(&profile.to_string())
         .unwrap()
         .config;
@@ -272,6 +163,189 @@ async fn socks_runtime_password_and_noauth_against_pinned_xray() {
             assert_refused(&server, settings, echo, "no matching auth method").await;
             eprintln!("missing credentials refused");
         }
+    })
+    .await
+    .unwrap();
+}
+
+async fn associate(proxy: SocketAddr) -> (TcpStream, UdpSocket, SocketAddr) {
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let mut control = TcpStream::connect(proxy).await.unwrap();
+    let relay = socks5_udp_associate(&mut control, None, socket.local_addr().unwrap(), proxy.ip())
+        .await
+        .unwrap();
+    (control, socket, relay)
+}
+
+async fn assert_udp_refused(server: &XrayServer, settings: Value, echo: SocketAddr, reason: &str) {
+    let before = server.log().matches(reason).count();
+    let (mut core, _, _) = core_with_tls(settings, server.connector.clone());
+    core.start().await.unwrap();
+    let (_control, socket, relay) = associate(core.inbound_addr(Some("socks-in")).unwrap()).await;
+    let target = Target::new(TargetAddr::Ip(echo.ip()), echo.port(), Network::Udp);
+    socket
+        .send_to(
+            &encode_socks5_udp_datagram(&target, b"must be refused").unwrap(),
+            relay,
+        )
+        .await
+        .unwrap();
+    while server.log().matches(reason).count() == before {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(
+        timeout(Duration::from_millis(100), socket.recv(&mut [0; 256]))
+            .await
+            .is_err()
+    );
+    core.stop().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires pinned Xray; run scripts/check-socks-interop.sh"]
+async fn socks_runtime_udp_password_noauth_and_tls_against_pinned_xray() {
+    timeout(DEADLINE * 4, async {
+        let (echo, _echo) = udp_echo().await;
+        let ipv6 = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
+        let echo6 = ipv6.local_addr().unwrap();
+        let _echo6 = Task(tokio::spawn(async move {
+            let mut buffer = [0; 8192];
+            loop {
+                let (len, peer) = ipv6.recv_from(&mut buffer).await.unwrap();
+                ipv6.send_to(&buffer[..len], peer).await.unwrap();
+            }
+        }));
+        for tls in [false, true] {
+            let server = if tls {
+                XrayServer::start_tls().await
+            } else {
+                XrayServer::start().await
+            };
+            for form in [Form::Flat, Form::Servers] {
+                for (port, account) in
+                    [(server.password, Some((USER, PASS))), (server.noauth, None)]
+                {
+                    let (mut core, protector, bootstrap) = core_with_tls(
+                        outbound_settings(form, port, account),
+                        server.connector.clone(),
+                    );
+                    core.start().await.unwrap();
+                    let (control, socket, relay) =
+                        associate(core.inbound_addr(Some("socks-in")).unwrap()).await;
+                    for (address, endpoint) in [
+                        (TargetAddr::Ip(echo.ip()), echo),
+                        (TargetAddr::Ip(echo6.ip()), echo6),
+                        (TargetAddr::Domain(REMOTE_DOMAIN.into()), echo),
+                    ] {
+                        let target = Target::new(address, endpoint.port(), Network::Udp);
+                        let header_len = encode_socks5_udp_datagram(&target, &[]).unwrap().len();
+                        for size in [1, 1200, 8192 - header_len] {
+                            let payload: Vec<u8> = (0..size).map(|i| (i % 251) as u8).collect();
+                            let datagram = encode_socks5_udp_datagram(&target, &payload).unwrap();
+                            socket.send_to(&datagram, relay).await.unwrap();
+                            let mut buffer = [0; 9000];
+                            let (len, source) = timeout(DEADLINE, socket.recv_from(&mut buffer))
+                                .await
+                                .unwrap()
+                                .unwrap();
+                            assert_eq!(source, relay);
+                            let reply = parse_socks5_udp_datagram(&buffer[..len]).unwrap();
+                            assert_eq!(reply.payload.as_ref(), payload);
+                            // Xray retains a domain target in the reply; the
+                            // hostname must not be resolved by the Rust client.
+                            assert_eq!(reply.target, target);
+                        }
+                    }
+                    assert!(
+                        protector.0.load(Ordering::SeqCst) >= 6,
+                        "protect TCP and UDP for every flow"
+                    );
+                    assert!(bootstrap.0.load(Ordering::SeqCst) >= 3);
+                    let snapshot = core.connection_snapshot();
+                    assert_eq!(snapshot.connections.len(), 3);
+                    assert!(snapshot
+                        .connections
+                        .iter()
+                        .all(|c| c.network == Network::Udp
+                            && c.outbound_tag.as_deref() == Some("proxy")));
+                    for connection in snapshot.connections {
+                        core.close_connection(connection.id).unwrap();
+                    }
+                    drop((control, socket));
+                    core.stop().await.unwrap();
+                    assert!(core.connection_snapshot().connections.is_empty());
+                    eprintln!(
+                        "SOCKS UDP {form:?}, TLS={tls}, password={}: IPv4/IPv6/domain passed",
+                        account.is_some()
+                    );
+                }
+                assert_udp_refused(
+                    &server,
+                    outbound_settings(form, server.password, Some((USER, "synthetic-wrong-pass"))),
+                    echo,
+                    "invalid username or password",
+                )
+                .await;
+                assert_udp_refused(
+                    &server,
+                    outbound_settings(form, server.password, None),
+                    echo,
+                    "no matching auth method",
+                )
+                .await;
+            }
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires pinned Xray; run scripts/check-socks-interop.sh"]
+async fn socks_runtime_pinned_xray_client_preserves_password_udp_restriction() {
+    timeout(DEADLINE * 2, async {
+        let profile = json!({
+            "inbounds":[{"tag":"upstream", "protocol":"socks", "listen":"127.0.0.1", "port":0,
+                "settings":{"auth":"password", "udp":true,"accounts":[{"user":USER,"pass":PASS}]}}],
+            "outbounds":[{"protocol":"freedom"}]
+        });
+        let mut upstream = Core::new(
+            xray_config::parse_xray_json(&profile.to_string())
+                .unwrap()
+                .config,
+        )
+        .unwrap();
+        upstream.start().await.unwrap();
+        let address = upstream.inbound_addr(Some("upstream")).unwrap();
+        let server = XrayServer::forwarding(json!({"protocol":"socks", "settings": {
+            "address":address.ip().to_string(), "port":address.port(), "user":USER, "pass":PASS
+        }}))
+        .await;
+        let proxy = SocketAddr::from((Ipv4Addr::LOCALHOST, server.noauth));
+        let (echo, _echo) = tcp_echo().await;
+        let (mut stream, reply) = connect(proxy, Destination::Ipv4(echo)).await;
+        assert_eq!(reply, 0, "the pinned Go client authenticates for TCP");
+        echo_round_trip(&mut stream, 64).await;
+        let (echo, _udp) = udp_echo().await;
+        let (_control, socket, relay) = associate(proxy).await;
+        let target = Target::new(TargetAddr::Ip(echo.ip()), echo.port(), Network::Udp);
+        socket
+            .send_to(
+                &encode_socks5_udp_datagram(&target, b"must be refused").unwrap(),
+                relay,
+            )
+            .await
+            .unwrap();
+        while !server.log().contains("server rejects request") {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(
+            timeout(Duration::from_millis(200), socket.recv(&mut [0; 256]))
+                .await
+                .is_err(),
+            "the Go client's undeclared UDP port must not bypass password-inbound policy"
+        );
+        upstream.stop().await.unwrap();
     })
     .await
     .unwrap();

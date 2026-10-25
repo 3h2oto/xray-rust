@@ -30,8 +30,19 @@ long-term supported release series.
   optional RFC 1929 `user`/`pass` credentials over raw/tcp with none or TLS
   security. Mixed forms, more than one server or user, a lone `user` or `pass`,
   empty credentials, a zero port, enabled Mux, other networks and REALITY fail
-  closed. Without TLS the credentials travel in cleartext. The outbound carries
-  TCP `CONNECT` only; UDP routed to it is refused.
+  closed. Without TLS the credentials travel in cleartext.
+- Carry UDP through the `socks` outbound with `UDP ASSOCIATE`. Unlike Xray,
+  which always declares `0.0.0.0:0`, the request declares the relay socket's
+  real port, so servers that admit only the declared client endpoint, such as
+  a password-protected xray-rust SOCKS inbound, accept it. The association
+  ends when the server closes the control connection, malformed or fragmented
+  relay datagrams are dropped instead of ending it, and an oversized datagram
+  is an error rather than an empty datagram. The datagrams use a protected
+  plain UDP socket; TLS covers only the control connection.
+  Unspecified relay addresses use the actual TCP peer after Happy Eyeballs,
+  and IPv4-mapped proxy literals select IPv4 for both sockets. Pinned Xray-core
+  interop covers UDP, TLS control, IPv4/IPv6/domain targets, and TUN UDP/DNS;
+  the password-inbound restriction on undeclared UDP ports remains in force.
 
 - Fix false checksum failures in Gradle provenance verification after a partial
   download is retried. Verify completed temporary files against both canonical
