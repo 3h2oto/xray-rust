@@ -5,54 +5,43 @@ This records compatibility decisions and unfinished integration work from
 [#81](https://github.com/aimalygin/xray-rust/issues/81), and PRs
 [#74](https://github.com/aimalygin/xray-rust/pull/74),
 [#80](https://github.com/aimalygin/xray-rust/pull/80),
-[#82](https://github.com/aimalygin/xray-rust/pull/82), and
-[#84](https://github.com/aimalygin/xray-rust/pull/84).
+[#82](https://github.com/aimalygin/xray-rust/pull/82),
+[#84](https://github.com/aimalygin/xray-rust/pull/84),
+[#86](https://github.com/aimalygin/xray-rust/pull/86), and
+[#87](https://github.com/aimalygin/xray-rust/pull/87).
 The [configuration contract](config-compatibility.md) remains authoritative for
 accepted fields. This document records consequences, evidence, and follow-up
 checks; it does not expand the supported configuration surface.
 
 ## Reference and evidence
 
-Reviewed on 2026-10-24 against xray-rust main
-`6168fdaf9c8939941ed3f7009753ba98b1574e0f` and Xray-core **v26.7.28**,
+Integration status reviewed on 2026-10-25 against xray-rust main
+`957827b26c3afdc3420f85bb7ef0568824cebfa5` and Xray-core **v26.7.28**,
 `5ca6f4b7d4dc20a881d4330e498892697627ec0c`. The upstream pin is enforced by
 [verify-oracle-fixtures.py](../scripts/verify-oracle-fixtures.py). These findings
 do not establish compatibility with every later Xray-core revision.
 
-The [main CI run](https://github.com/aimalygin/xray-rust/actions/runs/40104360249)
-passed rust, android, apple, go-oracles, supply-chain, and secrets. Passing a job
-establishes the scenarios that job exercises, not every combination of a
-protocol, platform, transport, and API. In particular, mobile SOCKS bootstrap
-and a real Xray SOCKS client using our password-protected UDP inbound were not
-covered by that run.
+The [main CI run](https://github.com/aimalygin/xray-rust/actions/runs/40207537967)
+passed rust, android, apple, go-oracles, supply-chain, and secrets after #85,
+#86, and #87 were merged. Passing a job establishes the scenarios it exercises,
+not every protocol/platform/transport/API combination or physical-device routing.
+The tests described below are now integrated in that main revision.
 
-The changes from these PRs were unreleased at this review; the latest published
-release was [v0.8.1](https://github.com/aimalygin/xray-rust/releases/tag/v0.8.1).
+These changes are in main; this evidence is not a release qualification.
+The [changelog](../CHANGELOG.md#unreleased) tracks them as unreleased.
 
-### Pending integration
-
-The table below distinguishes follow-up work from the reviewed main snapshot.
-Neither PR expands main's support until it is merged. Keep this section current
-when integrating the branches rather than silently applying their results to
-the older snapshot.
+### Integrated follow-ups
 
 | Change | Evidence | Integration state |
 | --- | --- | --- |
-| [#86: mobile SOCKS carrier bootstrap](https://github.com/aimalygin/xray-rust/pull/86), `312f26477b696789a7978e71e7b293fadcc74127` | Flat/legacy server settings, static mappings and aliases, IPv4/IPv6 literals, and tunnel-owned address rejection; 107 Android tests passed with 12 native-only skips and 350 Swift tests passed; [all six CI jobs passed](https://github.com/aimalygin/xray-rust/actions/runs/40120289548) | Implemented; awaiting merge |
-| [#87: SOCKS UDP outbound](https://github.com/aimalygin/xray-rust/pull/87), contributor head `9fcf7443b9f170d374d424bc55e03cdf583f2b52` | Adds a declared UDP endpoint and association lifecycle. Review follow-up fixes unspecified relay addresses after Happy Eyeballs and mapped IPv6 proxy literals; adds pinned UDP/TLS/TUN interop and the reverse-direction restriction test described below | Review follow-up prepared separately; awaiting integration and CI on the final PR revision |
+| [#86: mobile SOCKS carrier bootstrap](https://github.com/aimalygin/xray-rust/pull/86), `312f26477b696789a7978e71e7b293fadcc74127` | Flat/legacy server settings, static mappings and aliases, IPv4/IPv6 literals, and tunnel-owned address rejection; [PR CI](https://github.com/aimalygin/xray-rust/actions/runs/40120289548) and combined main CI passed | Merged |
+| [#87: SOCKS UDP outbound](https://github.com/aimalygin/xray-rust/pull/87), final head `08eba9d87f22c3e5a02a1795a889dd33f4c6c40c` | Declared UDP endpoint and association lifecycle, both relay-address review fixes, pinned UDP/TLS/TUN interop, and the reverse-direction restriction test below; [final PR CI](https://github.com/aimalygin/xray-rust/actions/runs/40157752393) and combined main CI passed | Merged |
 
-The #87 review follow-up is
-[`36ade5937ed92eea2ab5b568603b4509f38f1745`](https://github.com/aimalygin/xray-rust/commit/36ade5937ed92eea2ab5b568603b4509f38f1745)
-on `codex/socks-udp-interop`. Its local workspace run passed 2,552 tests with
-109 standard ignored tests; all four pinned SOCKS interop tests, Clippy,
-formatting, mobile script guards, and the generated configuration contract
-check passed. The #86 and #87 trees merge without conflicts; this is not a
-physical-device test of the combined branches.
-The contributor revision's
-[CI run](https://github.com/aimalygin/xray-rust/actions/runs/40124846131) passed
-rust, android, apple, supply-chain and secrets, but go-oracles failed while a
-WireGuard reference server tried to bind an occupied local UDP port. That run
-is not green and does not validate the subsequent review fixes.
+The combined main run passed all four pinned SOCKS interop tests, both
+relay-address regressions, the foreign-first-sender isolation tests, and the
+Android/Apple bootstrap tests. It also passed the WireGuard rebind test that
+had failed on an earlier #87 revision while binding an occupied local UDP port.
+This establishes the listed tests on the combined tree, not NAT or device proof.
 
 ## Decisions at a glance
 
@@ -60,11 +49,11 @@ is not green and does not validate the subsequent review fixes.
 | --- | --- | --- |
 | #74 / #83: dependencies and Tokio descriptors | Updated dependency locks, private CLOEXEC descriptor duplicates, corrected Gradle checksum retry handling | Internal Rust/build changes; no intended Xray JSON or wire-format change |
 | #80 / #78: SOCKS inbound authentication | SOCKS5 username/password; stricter credential/configuration validation | RFC 1929 TCP authentication; authenticated UDP has the deliberate restriction below |
-| #84 / #79: SOCKS outbound | TCP CONNECT, noauth or password, flat or legacy settings, raw TCP with none/TLS security | Tested subset of Xray-core; #87 adds UDP, while the transport restrictions remain |
+| #84 / #87 / #79: SOCKS outbound | TCP CONNECT and UDP ASSOCIATE, noauth or password, flat or legacy settings, raw TCP with none/TLS control security | Tested subset of Xray-core; UDP relay datagrams remain plain and transport restrictions remain |
 | #82 / #81: Android fixes | VPN metering policy, cached native FFI information, checked stats array length | Host SDK behavior, not an Xray network protocol extension |
-| #81: proposed Android cleanup/helpers | Cleanup, descriptor/snapshot/package helpers, optional network-change integration | Not yet implemented by these PRs; must preserve documented ownership and lifecycle rules |
+| #81: Android cleanup/helpers | Stage 1 merged in #82; stage 2 cleanup follows separately; stage 3 helpers remain optional | Host SDK work; preserve documented ownership and lifecycle rules |
 | #79: HTTP outbound | Not implemented | Proposed CONNECT/Basic-auth/TLS support; scope decisions and checks remain below |
-| Mobile SOCKS bootstrap | SOCKS is omitted from Android and Apple carrier-host collection | Integration gap fixed in pending #86, not an intended compatibility restriction |
+| #86: mobile SOCKS bootstrap | Android and Apple prepare SOCKS carrier hosts/literals before VPN setup; Apple excludes carrier routes | Integration gap fixed; destination DNS remains at the proxy |
 
 ## Password-protected SOCKS UDP: deliberate restriction
 
@@ -88,7 +77,7 @@ by [RFC 1928 section 6](https://www.rfc-editor.org/rfc/rfc1928.html#section-6):
   password-protected SOCKS inbound. The #87 review follow-up test
   `socks_runtime_pinned_xray_client_preserves_password_udp_restriction`
   confirms this against the pinned Go client: TCP authentication and echo pass,
-  while UDP is rejected. The test is pending integration with that branch.
+  while UDP is rejected. It passed in the combined main CI run.
 
 Declaring a local port also does not guarantee operation across NAT: a NAT
 that rewrites the UDP source port makes it differ from the declared endpoint.
@@ -112,10 +101,11 @@ forms, zero ports, incomplete/empty credentials, and unknown fields instead of
 silently accepting or ignoring them. `level` also applies without credentials;
 `email` is type-checked but does not supply upstream user-identity accounting.
 
-At the main snapshot, the outbound implements TCP CONNECT only. It rejects UDP,
-enabled Mux, non-raw transports, and REALITY. Xray-core has a SOCKS UDP client and a broader
-transport surface. SOCKS support does not imply `socks://` or `socks5://` import
-support in our mobile profile importers.
+At the reviewed main snapshot, the outbound implements TCP CONNECT and UDP
+ASSOCIATE. It rejects enabled Mux, non-raw transports, and REALITY. UDP proxy
+chaining remains rejected. Xray-core has a broader transport surface. SOCKS
+support does not imply `socks://` or `socks5://` import support in our mobile
+profile importers.
 
 [check-socks-interop.sh](../scripts/check-socks-interop.sh) runs a real pinned
 Xray-core SOCKS server against the Rust client. Its
@@ -124,10 +114,11 @@ settings shapes, password/noauth, wrong/missing credentials, IPv4 and remote
 domain resolution, 64 KiB payloads, socket protection, and connection inventory.
 Separate [client tests](../crates/xray-proxy/tests/socks_client_tests.rs) cover
 IPv6 address encoding, malformed/truncated replies, and preserving tunnel data
-after the reply. These are different evidence levels: the live upstream test
-does not currently cover IPv6, TLS, `proxySettings`, or `probeOutboundUrl`.
+after the reply. These are different evidence levels: this TCP test does not
+currently cover IPv6 destinations, TLS, `proxySettings`, or `probeOutboundUrl`. The UDP test
+coverage below does not establish those TCP combinations.
 
-The pending #87 follow-up extends the pinned script with UDP in both settings
+The merged #87 follow-up extends the pinned script with UDP in both settings
 forms, password/noauth and wrong/missing credentials, plain/TLS control
 connections, IPv4/IPv6/domain destinations, the 8 KiB datagram framing boundary,
 socket protection, host close, and TUN UDP/DNS under `StaticOnly` bootstrap.
@@ -136,58 +127,50 @@ unspecified relay IP must use the actual connected TCP peer after a candidate
 fallback, and that an IPv4-mapped IPv6 proxy literal needs an IPv4 UDP socket,
 matching the TCP connection and #86's Apple carrier exclusions.
 
-These tests passed locally against the pinned Go revision. They do not prove
-physical-device routing, NAT traversal, an IPv6 proxy carrier, TLS TCP CONNECT,
+These tests passed locally and in combined main CI against the pinned Go
+revision. They do not prove physical-device routing, NAT traversal, an IPv6
+proxy carrier, TLS TCP CONNECT,
 `proxySettings` or `probeOutboundUrl` interoperability. TLS protects only the
 SOCKS control connection; UDP relay datagrams remain plain. UDP proxy chaining
 and Mux remain rejected. No C ABI or host ownership contract changes are needed.
 
-## Mobile SDK and the SOCKS bootstrap gap
+## Mobile SDK and the resolved SOCKS bootstrap gap
 
 `setMetered(false)`, FFI caching, stats decoding, and the proposed #81 helpers
-belong to the Kotlin SDK. They do not add a protocol to Xray-core. A descriptor
-helper must preserve BORROWED/OWNED lifetime rules; a network-change helper must
-preserve the [host's network selection and shutdown rules](../platform/android/README.md#network-changes-and-hysteria-limits).
+belong to the Kotlin SDK. They do not add a protocol to Xray-core. Stage 1 is
+merged in #82. Stage 2 is a separate cleanup of snapshot/enum decoding, importer
+validation, and service shutdown diagnostics. It must preserve accepted values,
+error handling, cancellation, and descriptor shutdown order; secondary cleanup
+errors can be retained as suppressed exceptions on the first failure.
+
+Stage 3 helpers are optional follow-ups, not prerequisites for the cleanup.
+A descriptor helper must preserve BORROWED/OWNED lifetime rules; a network-change
+helper must preserve the [host's network selection and shutdown rules](../platform/android/README.md#network-changes-and-hysteria-limits).
 Coroutines remain a separate dependency/API decision.
 
-At the reviewed commit, Android's `collectOutboundBootstrapDomains` in
+Before #86, Android's `collectOutboundBootstrapDomains` in
 [XrayAndroidDnsBootstrap.kt](../platform/android/xraymobile/src/main/java/org/xrayrust/mobile/XrayAndroidDnsBootstrap.kt)
 and Apple's `outboundBootstrapAddresses` in
 [XrayPacketTunnelProvider.swift](../platform/apple/Sources/XrayAppleTunnel/XrayPacketTunnelProvider.swift)
-omit `socks`. A SOCKS server specified by domain without a usable static host
-mapping is therefore not prepared for the SDK's `StaticOnly` bootstrap mode.
-This is a bug to fix, not a permanent divergence from Xray-core.
+omitted `socks`. The merged fix prepares the proxy's carrier hostname before
+installing the VPN in `StaticOnly` mode and applies Apple carrier exclusions.
+Destination domains in CONNECT and UDP relay datagrams remain the proxy's
+responsibility.
 
-A local Android unit reproduction used the existing
-`prepareAndroidVpnConfigWithinDeadline` entry point with a stub resolver
-returning `192.0.2.8` for `proxy.example`. Both settings forms below failed the
-assertion that the resolver is called and a `full:proxy.example` mapping is
-inserted; the observed lookup list was empty. An equivalent flat Trojan
-control passed. The bootstrap source tested was identical to the reviewed main.
-
-```json
-{"outbounds":[{"protocol":"socks","settings":{"address":"proxy.example","port":1080}}]}
-```
-
-```json
-{"outbounds":[{"protocol":"socks","settings":{"servers":[{"address":"proxy.example","port":1080}]}}]}
-```
-
-The initial reproduction was not committed. PR #86 now includes permanent
-Android and Apple regressions for the same gap, covering both settings forms,
-static hosts/aliases, literal normalization, and tunnel-owned address rejection.
-It resolves the proxy's carrier hostname before installing the VPN and applies
-Apple carrier exclusions, while destination domains in CONNECT or UDP relay
-datagrams remain the proxy's responsibility. Host unit tests and CI passed;
-physical-device routing is not established by those tests. The fix remains
-pending integration.
+Permanent Android and Apple regressions cover both settings forms, static
+hosts/aliases, literal normalization, and tunnel-owned address rejection.
+They passed in combined main CI. Physical-device routing is not established by
+those host tests.
 
 ## HTTP outbound: proposed scope, not implemented support
 
 The #79 request for CONNECT, optional Basic authentication, TCP-only operation,
 and plain TCP or TLS follows the pinned
 [Xray HTTP client](https://github.com/XTLS/Xray-core/blob/5ca6f4b7d4dc20a881d4330e498892697627ec0c/proxy/http/client.go).
-Before implementing it, record decisions for these remaining differences:
+The [next-PR proposal](https://github.com/aimalygin/xray-rust/issues/79#issuecomment-6400188060)
+requests HTTP/1.1 with matching ALPN and status 200, plus chain/probe/mobile
+integration. Contributor confirmation and implementation are still pending.
+Record the final decisions for these differences before claiming support:
 
 - HTTP/1.1 versus HTTP/2: the reference supports both. If the first version
   implements only HTTP/1.1, constrain TLS ALPN accordingly and document the
@@ -205,16 +188,16 @@ Before implementing it, record decisions for these remaining differences:
 
 ## Follow-up checks
 
-- [ ] Integrate the #87 review follow-up, including both relay-address fixes,
-  the pinned UDP/TLS/TUN tests, and the direct Go-client password-UDP restriction
-  regression. Keep the foreign-first sender protection tests. Run CI on the
-  final contributor revision before merging.
-- [ ] Integrate the tested #86 Android and Apple SOCKS bootstrap fixes; verify
-  the combined #86/#87 branches without changing destination DNS semantics.
+- [x] Integrate the #87 review follow-up, including both relay-address fixes,
+  pinned UDP/TLS/TUN tests, and the direct Go-client password-UDP restriction
+  regression. The foreign-first-sender protection tests remain green.
+- [x] Integrate #86 Android and Apple SOCKS bootstrap fixes and verify the
+  combined #86/#87 main tree without changing destination DNS semantics.
 - [ ] Add live TCP CONNECT over TLS, an IPv6 proxy carrier, `proxySettings`, and
   `probeOutboundUrl` coverage; distinguish them from UDP TLS control and IPv6
   destination coverage already added in the #87 follow-up.
-- [ ] Resolve the HTTP scope decisions above before claiming #79 complete.
+- [ ] Resolve and implement the HTTP scope above before claiming #79 complete.
+- [ ] Track SOCKS share-link import separately from outbound protocol support.
 - [ ] Keep #81 cleanup separate from new SDK API/lifecycle behavior and verify
   each against the documented FFI/host contract.
 

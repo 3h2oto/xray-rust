@@ -10,6 +10,11 @@ long-term supported release series.
 
 ## Unreleased
 
+- Android: share snapshot/enum decoding and VLESS parameter validation without
+  changing their accepted values or errors. VPN session shutdown retains later
+  cleanup failures as suppressed exceptions on the original error; descriptor
+  ownership, shutdown order, and public SDK/FFI contracts are unchanged (#81).
+
 - Mobile: prepare SOCKS outbound server addresses before installing Android VPN
   or Apple Network Extension settings, in both flat and legacy `servers` forms.
   Pin all resolved A/AAAA candidates in `dns.hosts`, preserve credentials and TLS
