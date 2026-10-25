@@ -59,6 +59,14 @@ data class XrayFfiInfo(
         capabilityMask and capability.mask == capability.mask
 }
 
+private inline fun <T> wireEnumValue(
+    entries: Iterable<T>,
+    value: String,
+    kind: String,
+    wireValue: (T) -> String,
+): T = entries.firstOrNull { wireValue(it) == value }
+    ?: throw IllegalArgumentException("unknown $kind: $value")
+
 enum class XrayRoutingDomainStrategy(val wireValue: String) {
     AsIs("asIs"),
     IpIfNonMatch("ipIfNonMatch"),
@@ -67,8 +75,7 @@ enum class XrayRoutingDomainStrategy(val wireValue: String) {
 
     companion object {
         internal fun fromWireValue(value: String): XrayRoutingDomainStrategy =
-            entries.firstOrNull { it.wireValue == value }
-                ?: throw IllegalArgumentException("unknown routing domain strategy: $value")
+            wireEnumValue(entries, value, "routing domain strategy") { it.wireValue }
     }
 }
 
@@ -99,8 +106,7 @@ enum class XrayOutboundHealthState(val wireValue: String) {
 
     companion object {
         internal fun fromWireValue(value: String): XrayOutboundHealthState =
-            entries.firstOrNull { it.wireValue == value }
-                ?: throw IllegalArgumentException("unknown outbound health state: $value")
+            wireEnumValue(entries, value, "outbound health state") { it.wireValue }
     }
 }
 
@@ -115,8 +121,7 @@ enum class XrayOutboundHealthFailureKind(val wireValue: String) {
 
     companion object {
         internal fun fromWireValue(value: String): XrayOutboundHealthFailureKind =
-            entries.firstOrNull { it.wireValue == value }
-                ?: throw IllegalArgumentException("unknown outbound health failure kind: $value")
+            wireEnumValue(entries, value, "outbound health failure kind") { it.wireValue }
     }
 }
 
@@ -183,8 +188,7 @@ enum class XrayConnectionState(val wireValue: String) {
 
     companion object {
         internal fun fromWireValue(value: String): XrayConnectionState =
-            entries.firstOrNull { it.wireValue == value }
-                ?: throw IllegalArgumentException("unknown connection state: $value")
+            wireEnumValue(entries, value, "connection state") { it.wireValue }
     }
 }
 
@@ -195,8 +199,7 @@ enum class XrayConnectionNetwork(val wireValue: String) {
 
     companion object {
         internal fun fromWireValue(value: String): XrayConnectionNetwork =
-            entries.firstOrNull { it.wireValue == value }
-                ?: throw IllegalArgumentException("unknown connection network: $value")
+            wireEnumValue(entries, value, "connection network") { it.wireValue }
     }
 }
 
@@ -207,8 +210,7 @@ enum class XrayConnectionAddressType(val wireValue: String) {
 
     companion object {
         internal fun fromWireValue(value: String): XrayConnectionAddressType =
-            entries.firstOrNull { it.wireValue == value }
-                ?: throw IllegalArgumentException("unknown connection address type: $value")
+            wireEnumValue(entries, value, "connection address type") { it.wireValue }
     }
 }
 
@@ -418,10 +420,7 @@ internal fun NativeTunDiagnosticEvent.toUdpQuicBlockedEvent(): XrayUdpQuicBlocke
 
 internal fun parseRoutingPolicySnapshot(json: String): XrayRoutingPolicySnapshot {
     val root = JSONObject(json)
-    val schemaVersion = root.getInt("schemaVersion")
-    require(schemaVersion == 1) {
-        "unsupported routing policy snapshot schema: $schemaVersion"
-    }
+    val schemaVersion = root.snapshotSchemaVersion("routing policy")
     return XrayRoutingPolicySnapshot(
         schemaVersion = schemaVersion,
         revision = root.getLong("revision"),
@@ -434,13 +433,8 @@ internal fun parseRoutingPolicySnapshot(json: String): XrayRoutingPolicySnapshot
 
 internal fun parseOutboundSelectionSnapshot(json: String): XrayOutboundSelectionSnapshot {
     val root = JSONObject(json)
-    val schemaVersion = root.getInt("schemaVersion")
-    require(schemaVersion == 1) {
-        "unsupported outbound selection snapshot schema: $schemaVersion"
-    }
-    val groupsJson = root.getJSONArray("groups")
-    val groups = List(groupsJson.length()) { groupIndex ->
-        val group = groupsJson.getJSONObject(groupIndex)
+    val schemaVersion = root.snapshotSchemaVersion("outbound selection")
+    val groups = root.mapObjects("groups") { group ->
         val candidatesJson = group.getJSONArray("candidates")
         XrayOutboundSelectorGroupSnapshot(
             tag = group.getString("tag"),
@@ -457,13 +451,8 @@ internal fun parseOutboundSelectionSnapshot(json: String): XrayOutboundSelection
 
 internal fun parseOutboundHealthSnapshot(json: String): XrayOutboundHealthSnapshot {
     val root = JSONObject(json)
-    val schemaVersion = root.getInt("schemaVersion")
-    require(schemaVersion == 1) {
-        "unsupported outbound health snapshot schema: $schemaVersion"
-    }
-    val outboundsJson = root.getJSONArray("outbounds")
-    val outbounds = List(outboundsJson.length()) { outboundIndex ->
-        val outbound = outboundsJson.getJSONObject(outboundIndex)
+    val schemaVersion = root.snapshotSchemaVersion("outbound health")
+    val outbounds = root.mapObjects("outbounds") { outbound ->
         XrayOutboundHealthStatus(
             tag = outbound.getString("tag"),
             state = XrayOutboundHealthState.fromWireValue(outbound.getString("state")),
@@ -485,13 +474,8 @@ internal fun parseOutboundHealthSnapshot(json: String): XrayOutboundHealthSnapsh
 
 internal fun parseConnectionSnapshot(json: String): XrayConnectionSnapshot {
     val root = JSONObject(json)
-    val schemaVersion = root.getInt("schemaVersion")
-    require(schemaVersion == 1) {
-        "unsupported connection snapshot schema: $schemaVersion"
-    }
-    val connectionsJson = root.getJSONArray("connections")
-    val connections = List(connectionsJson.length()) { connectionIndex ->
-        val connection = connectionsJson.getJSONObject(connectionIndex)
+    val schemaVersion = root.snapshotSchemaVersion("connection")
+    val connections = root.mapObjects("connections") { connection ->
         XrayConnectionInfo(
             id = connection.getLong("id"),
             state = XrayConnectionState.fromWireValue(connection.getString("state")),
@@ -515,13 +499,8 @@ internal fun parseConnectionSnapshot(json: String): XrayConnectionSnapshot {
 
 internal fun parseOutboundAccountingSnapshot(json: String): XrayOutboundAccountingSnapshot {
     val root = JSONObject(json)
-    val schemaVersion = root.getInt("schemaVersion")
-    require(schemaVersion == 1) {
-        "unsupported outbound accounting snapshot schema: $schemaVersion"
-    }
-    val outboundsJson = root.getJSONArray("outbounds")
-    val outbounds = List(outboundsJson.length()) { outboundIndex ->
-        val outbound = outboundsJson.getJSONObject(outboundIndex)
+    val schemaVersion = root.snapshotSchemaVersion("outbound accounting")
+    val outbounds = root.mapObjects("outbounds") { outbound ->
         XrayOutboundAccounting(
             outboundTag = outbound.optionalString("outboundTag"),
             openedConnections = outbound.getLong("openedConnections"),
@@ -536,6 +515,17 @@ internal fun parseOutboundAccountingSnapshot(json: String): XrayOutboundAccounti
         revision = root.getLong("revision"),
         outbounds = outbounds,
     )
+}
+
+private fun JSONObject.snapshotSchemaVersion(kind: String): Int {
+    val version = getInt("schemaVersion")
+    require(version == 1) { "unsupported $kind snapshot schema: $version" }
+    return version
+}
+
+private inline fun <T> JSONObject.mapObjects(name: String, transform: (JSONObject) -> T): List<T> {
+    val values = getJSONArray(name)
+    return List(values.length()) { transform(values.getJSONObject(it)) }
 }
 
 private fun JSONObject.optionalString(name: String): String? =
